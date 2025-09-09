@@ -1,0 +1,14 @@
+{
+  "name": "danmu-api-server",
+  "version": "1.0.0",
+  "description": "A danmu Node.js Express API server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
