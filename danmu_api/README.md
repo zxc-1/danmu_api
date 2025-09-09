@@ -24,23 +24,18 @@
    cd <项目目录>
    ```
 
-2. **进入 danmu_api 目录**：
-   ```bash
-   cd danmu_api
-   ```
-
-3. **安装依赖**：
+2. **安装依赖**：
    ```bash
    npm install
    ```
 
-4. **启动服务器**：
+3. **启动服务器**：
    ```bash
    npm start
    ```
    服务器将在 `http://{ip}:9321` 运行。
 
-5. **测试 API**：
+4. **测试 API**：
    使用 Postman 或 curl 测试：
    - `GET http://{ip}:9321/api/v2/search/anime?keyword=Anime%20A`
    - `GET http://{ip}:9321/api/v2/bangumi/1`
@@ -104,16 +99,16 @@
 ```
 ├── danmu_api/
 │   ├── server.js       # 主 API 服务器代码
-│   ├── package.json    # 项目依赖和脚本
-│   ├── Dockerfile      # Docker 配置
-│   ├── vercel.json     # Vercel 部署配置
 │   ├── README.md       # 项目文档
+├── package.json    # 项目依赖和脚本
+├── Dockerfile      # Docker 配置
+├── vercel.json     # Vercel 部署配置
 ```
 
 ## 注意事项
 - 日志存储在内存中，服务器重启后会清空。
 - `/api/logs` 中的 JSON 日志会格式化显示，带缩进以提高可读性。
-- 确保 `danmu_api/package.json` 中包含 `express` 依赖。
+- 确保 `package.json` 中包含 `express` 依赖。
 - 一键部署需要将项目推送到公开的 Git 仓库（如 GitHub），并更新按钮中的仓库地址。
 
 ## 许可证

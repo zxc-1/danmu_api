@@ -1,11 +1,11 @@
-# 使用官方 Node.js 18 轻量版镜像作为基础镜像
-FROM node:18-alpine
+# 使用官方 Node.js 22 轻量版镜像作为基础镜像
+FROM node:22-alpine
 
 # 设置工作目录
 WORKDIR /app/danmu_api
 
 # 复制 package.json 和 package-lock.json（如果存在）
-COPY danmu_api/package*.json ./
+COPY package*.json ./
 
 # 安装项目依赖
 RUN npm install
