@@ -82,6 +82,16 @@ console.error = (...args) => {
 // Middleware to parse JSON
 app.use(express.json());
 
+// 首页路由：返回开源仓库说明
+app.get('/', (req, res) => {
+    console.log('Accessed homepage with repository information');
+    res.json({
+        message: "Welcome to the Danmu API server",
+        repository: "https://github.com/huangxd-/danmu_api.git",
+        notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
+    });
+});
+
 // API 1: 搜索动漫
 app.get('/api/v2/search/anime', (req, res) => {
     const queryTitle = req.query.keyword;
