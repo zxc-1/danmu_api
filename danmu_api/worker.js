@@ -55,96 +55,128 @@ function formatLogMessage(message) {
   }
 }
 
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Extracted function for GET /api/v2/search/anime
+async function searchAnime(url) {
+  const queryTitle = url.searchParams.get("keyword");
+  if (!queryTitle) {
+    log("error", { error: "Keyword is required", received: url.searchParams });
+    return jsonResponse(
+      {
+        errorCode: 400,
+        success: false,
+        errorMessage: "Keyword is required",
+        animes: [],
+      },
+      400
+    );
+  }
+  const filteredAnimes = animes.filter((anime) =>
+    anime.animeTitle.toLowerCase().includes(queryTitle.toLowerCase())
+  );
+  log("log", `Search anime with keyword: ${queryTitle}`);
+  return jsonResponse({
+    errorCode: 0,
+    success: true,
+    errorMessage: "",
+    animes: filteredAnimes,
+  });
+}
+
+// Extracted function for GET /api/v2/bangumi/:animeId
+async function getBangumi(path) {
+  const animeId = parseInt(path.split("/").pop());
+  const anime = animes.find((a) => a.animeId === animeId);
+  if (!anime) {
+    log("error", `Anime with ID ${animeId} not found`);
+    return jsonResponse(
+      { errorCode: 404, success: false, errorMessage: "Anime not found", bangumi: null },
+      404
+    );
+  }
+  log("log", `Fetched details for anime ID: ${animeId}`);
+  return jsonResponse({
+    errorCode: 0,
+    success: true,
+    errorMessage: "",
+    bangumi: {
+      animeId: anime.animeId,
+      bangumiId: anime.bangumiId,
+      animeTitle: anime.animeTitle,
+      imageUrl: anime.imageUrl,
+      isOnAir: true,
+      airDay: 1,
+      isFavorited: anime.isFavorited,
+      rating: anime.rating,
+      type: anime.type,
+      typeDescription: anime.typeDescription,
+      seasons: [
+        {
+          id: `season-${anime.animeId}`,
+          airDate: anime.startDate,
+          name: "Season 1",
+          episodeCount: anime.episodeCount,
+        },
+      ],
+      episodes: [
+        {
+          seasonId: `season-${anime.animeId}`,
+          episodeId: 1,
+          episodeTitle: "Episode 1",
+          episodeNumber: "01",
+          airDate: anime.startDate,
+        },
+      ],
+    },
+  });
+}
+
+// Extracted function for GET /api/v2/comment/:commentId
+async function getComment(path) {
+  const commentId = parseInt(path.split("/").pop());
+  const comment = comments.find((c) => c.cid === commentId);
+  if (!comment) {
+    log("error", `Comment with ID ${commentId} not found`);
+    return jsonResponse({ count: 0, comments: [] }, 404);
+  }
+  log("log", `Fetched comment ID: ${commentId}`);
+  return jsonResponse({ count: 1, comments: [comment] });
+}
+
 async function handleRequest(req) {
   const url = new URL(req.url);
   const path = url.pathname;
   const method = req.method;
 
-  // GET /api/users
-  if (path === "/api/v2/search/anime" && method === "GET") {
-    const queryTitle = url.searchParams.get("keyword");
-    if (!queryTitle) {
-      log("error", { error: "Keyword is required", received: url.searchParams });
-      return jsonResponse(
-        {
-          errorCode: 400,
-          success: false,
-          errorMessage: "Keyword is required",
-          animes: [],
-        },
-        400
-      );
-    }
-    const filteredAnimes = animes.filter((anime) =>
-      anime.animeTitle.toLowerCase().includes(queryTitle.toLowerCase())
-    );
-    log("log", `Search anime with keyword: ${queryTitle}`);
+  // GET /
+  if (path === "/" && method === "GET") {
+    log("log", "Accessed homepage with repository information");
     return jsonResponse({
-      errorCode: 0,
-      success: true,
-      errorMessage: "",
-      animes: filteredAnimes,
+      message: "Welcome to the Danmu API server",
+      repository: "https://github.com/huangxd-/danmu_api.git",
+      notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
     });
+  }
+
+  // GET /api/v2/search/anime
+  if (path === "/api/v2/search/anime" && method === "GET") {
+    return searchAnime(url);
   }
 
   // GET /api/v2/bangumi/:animeId
   if (path.startsWith("/api/v2/bangumi/") && method === "GET") {
-    const animeId = parseInt(path.split("/").pop());
-    const anime = animes.find((a) => a.animeId === animeId);
-    if (!anime) {
-      log("error", `Anime with ID ${animeId} not found`);
-      return jsonResponse(
-        { errorCode: 404, success: false, errorMessage: "Anime not found", bangumi: null },
-        404
-      );
-    }
-    log("log", `Fetched details for anime ID: ${animeId}`);
-    return jsonResponse({
-      errorCode: 0,
-      success: true,
-      errorMessage: "",
-      bangumi: {
-        animeId: anime.animeId,
-        bangumiId: anime.bangumiId,
-        animeTitle: anime.animeTitle,
-        imageUrl: anime.imageUrl,
-        isOnAir: true,
-        airDay: 1,
-        isFavorited: anime.isFavorited,
-        rating: anime.rating,
-        type: anime.type,
-        typeDescription: anime.typeDescription,
-        seasons: [
-          {
-            id: `season-${anime.animeId}`,
-            airDate: anime.startDate,
-            name: "Season 1",
-            episodeCount: anime.episodeCount,
-          },
-        ],
-        episodes: [
-          {
-            seasonId: `season-${anime.animeId}`,
-            episodeId: 1,
-            episodeTitle: "Episode 1",
-            episodeNumber: "01",
-            airDate: anime.startDate,
-          },
-        ],
-      },
-    });
+    return getBangumi(path);
   }
 
   // GET /api/v2/comment/:commentId
   if (path.startsWith("/api/v2/comment/") && method === "GET") {
-    const commentId = parseInt(path.split("/").pop());
-    const comment = comments.find((c) => c.cid === commentId);
-    if (!comment) {
-      log("error", `Comment with ID ${commentId} not found`);
-      return jsonResponse({ count: 0, comments: [] }, 404);
-    }
-    log("log", `Fetched comment ID: ${commentId}`);
-    return jsonResponse({ count: 1, comments: [comment] });
+    return getComment(path);
   }
 
   // GET /api/logs
@@ -159,13 +191,6 @@ async function handleRequest(req) {
   }
 
   return jsonResponse({ message: "Not found" }, 404);
-}
-
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
 }
 
 // --- Cloudflare Workers 入口 ---
