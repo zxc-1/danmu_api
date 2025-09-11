@@ -218,3 +218,6 @@ export async function vercelHandler(req, res) {
   const text = await response.text();
   res.send(text);
 }
+
+// 为了测试导出 handleRequest
+export { handleRequest };
