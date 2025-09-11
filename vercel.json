@@ -2,14 +2,14 @@
   "version": 2,
   "builds": [
     {
-      "src": "danmu_api/server.js",
+      "src": "danmu_api/worker.js",
       "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
-      "dest": "danmu_api/server.js"
+      "src": "/api/(.*)",
+      "dest": "/danmu_api/worker.js"
     }
   ]
 }

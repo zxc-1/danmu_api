@@ -14,7 +14,7 @@ RUN npm install
 COPY danmu_api/ .
 
 # 暴露端口
-EXPOSE 3000
+EXPOSE 9321
 
 # 启动命令
 CMD ["node", "server.js"]
