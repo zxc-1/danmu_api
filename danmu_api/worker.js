@@ -207,6 +207,16 @@ async function handleRequest(req, env) {
   let path = url.pathname;
   const method = req.method;
 
+  // GET /
+  if (path === "/" && method === "GET") {
+    log("log", "Accessed homepage with repository information");
+    return jsonResponse({
+      message: "Welcome to the Danmu API server",
+      repository: "https://github.com/huangxd-/danmu_api.git",
+      notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
+    });
+  }
+
   // --- 校验 token ---
   const parts = path.split("/").filter(Boolean); // 去掉空段
   if (parts.length < 2 || parts[0] !== token) {
@@ -218,16 +228,6 @@ async function handleRequest(req, env) {
   }
   // 移除 token 部分，剩下的才是真正的路径
   path = "/" + parts.slice(1).join("/");
-
-  // GET /
-  if (path === "/" && method === "GET") {
-    log("log", "Accessed homepage with repository information");
-    return jsonResponse({
-      message: "Welcome to the Danmu API server",
-      repository: "https://github.com/huangxd-/danmu_api.git",
-      notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
-    });
-  }
 
   // GET /api/v2/search/anime
   if (path === "/api/v2/search/anime" && method === "GET") {
