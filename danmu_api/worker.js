@@ -32,6 +32,16 @@ const comments = [
   { cid: 2, p: "00:02.000,1,25,16777215,1694208001", m: "Love this anime!" },
 ];
 
+const DEFAULT_TOKEN = "87654321"; // 默认 token
+let token = DEFAULT_TOKEN;
+
+// 这里既支持 Cloudflare env，也支持 Node process.env
+function resolveToken(env) {
+  if (env && env.TOKEN) return env.TOKEN;         // Cloudflare Workers
+  if (typeof process !== "undefined" && process.env?.TOKEN) return process.env.TOKEN; // Vercel / Node
+  return DEFAULT_TOKEN;
+}
+
 // 查询360kan影片信息
 async function get360Animes(title) {
   try {
@@ -57,8 +67,10 @@ async function get360Animes(title) {
       throw new Error(data.errorMessage || "API调用失败");
     }
 
-    // 开始过滤数据
-    let animes = data.data.longData.rows;
+    let animes = [];
+    if (data.data.longData.length !== 0) {
+      animes = data.data.longData.rows;
+    }
 
     log("log", `animes.length: ${animes.length}`);
 
@@ -188,10 +200,24 @@ async function getComment(path) {
   return jsonResponse({ count: 1, comments: [comment] });
 }
 
-async function handleRequest(req) {
+async function handleRequest(req, env) {
+  token = resolveToken(env);  // 每次请求动态获取，确保热更新环境变量后也能生效
+
   const url = new URL(req.url);
-  const path = url.pathname;
+  let path = url.pathname;
   const method = req.method;
+
+  // --- 校验 token ---
+  const parts = path.split("/").filter(Boolean); // 去掉空段
+  if (parts.length < 2 || parts[0] !== token) {
+    log("error", `Invalid or missing token in path: ${path}`);
+    return jsonResponse(
+      { errorCode: 401, success: false, errorMessage: "Unauthorized" },
+      401
+    );
+  }
+  // 移除 token 部分，剩下的才是真正的路径
+  path = "/" + parts.slice(1).join("/");
 
   // GET /
   if (path === "/" && method === "GET") {
@@ -235,7 +261,7 @@ async function handleRequest(req) {
 // --- Cloudflare Workers 入口 ---
 export default {
   async fetch(request, env, ctx) {
-    return handleRequest(request);
+    return handleRequest(request, env);
   },
 };
 
