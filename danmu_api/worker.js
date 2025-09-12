@@ -32,6 +32,43 @@ const comments = [
   { cid: 2, p: "00:02.000,1,25,16777215,1694208001", m: "Love this anime!" },
 ];
 
+// 查询360kan影片信息
+async function get360Animes(title) {
+  try {
+    const response = await fetch(
+      `https://api.so.360kan.com/index?force_v=1&kw=${encodeURIComponent(title)}&from=&pageno=1&v_ap=1&tab=all`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP错误: ${response.status}`);
+    }
+
+    const data = await response.json();
+    log("log", "360kan response:", data);
+
+    // 检查API返回状态
+    if (data.msg !== "ok") {
+      throw new Error(data.errorMessage || "API调用失败");
+    }
+
+    // 开始过滤数据
+    let animes = data.data.longData.rows;
+
+    log("log", `animes.length: ${animes.length}`);
+
+    return animes;
+  } catch (error) {
+    log("error", `get360Animes error: ${error.message}`);
+    throw error;
+  }
+}
+
 // 日志存储，最多保存 500 行
 const logBuffer = [];
 const MAX_LOGS = 500;
@@ -65,27 +102,29 @@ function jsonResponse(data, status = 200) {
 // Extracted function for GET /api/v2/search/anime
 async function searchAnime(url) {
   const queryTitle = url.searchParams.get("keyword");
-  if (!queryTitle) {
-    log("error", { error: "Keyword is required", received: url.searchParams });
-    return jsonResponse(
-      {
-        errorCode: 400,
-        success: false,
-        errorMessage: "Keyword is required",
-        animes: [],
-      },
-      400
-    );
-  }
-  const filteredAnimes = animes.filter((anime) =>
-    anime.animeTitle.toLowerCase().includes(queryTitle.toLowerCase())
-  );
   log("log", `Search anime with keyword: ${queryTitle}`);
+  const animes360 = await get360Animes(queryTitle);
+  animes360.forEach(anime => {
+    const transformedAnime = {
+      animeId: anime.id, // Mapping animeId to id
+      bangumiId: anime.id, // Mapping bangumiId to id
+      animeTitle: anime.titleTxt, // Mapping animeTitle to titleTxt
+      type: anime.cat_name, // Mapping type to cat_name
+      typeDescription: anime.cat_name, // Mapping typeDescription to cat_name
+      imageUrl: anime.cover, // Mapping imageUrl to cover
+      startDate: `${anime.year}-01-01T00:00:00.000Z`, // Start date to the year field in ISO format
+      episodeCount: anime.seriesPlaylinks.length, // Mapping episodeCount to length of seriesPlaylinks
+      rating: 0, // Default rating as 0
+      isFavorited: true, // Assuming all anime are favorited by default
+    };
+
+    animes.push(transformedAnime);
+  });
   return jsonResponse({
     errorCode: 0,
     success: true,
     errorMessage: "",
-    animes: filteredAnimes,
+    animes: animes,
   });
 }
 
@@ -187,7 +226,7 @@ async function handleRequest(req) {
           `[${log.timestamp}] ${log.level}: ${formatLogMessage(log.message)}`
       )
       .join("\n");
-    return new Response(logText, { headers: { "Content-Type": "text/plain" } });
+    return new Response(logText, { headers: { "Content-Type": "text/plain; charset=utf-8" } });
   }
 
   return jsonResponse({ message: "Not found" }, 404);
