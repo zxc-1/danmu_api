@@ -276,7 +276,7 @@ export async function vercelHandler(req, res) {
         : undefined,
   });
 
-  const response = await handleRequest(cfReq);
+  const response = await handleRequest(cfReq, process.env);
 
   res.status(response.status);
   response.headers.forEach((value, key) => res.setHeader(key, value));
