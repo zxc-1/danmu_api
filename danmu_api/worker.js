@@ -229,6 +229,11 @@ async function handleRequest(req, env) {
   // 移除 token 部分，剩下的才是真正的路径
   path = "/" + parts.slice(1).join("/");
 
+  return jsonResponse(
+    { errorCode: 401, token: token, errorMessage: "/" + parts.slice(1).join("/") },
+    401
+  );
+
   // GET /api/v2/search/anime
   if (path === "/api/v2/search/anime" && method === "GET") {
     return searchAnime(url);
