@@ -39,9 +39,9 @@ jobs:
       # 构建 Docker 镜像，并使用 version 作为标签
       - name: Build Docker image
         run: |
-          docker build -t ghcr.io/${{ github.repository }}/danmu-api:${{ env.VERSION }} .
+          docker build -t ghcr.io/huangxd/danmu-api:${{ env.VERSION }} .
 
       # 推送 Docker 镜像到 GHCR
       - name: Push Docker image to GHCR
         run: |
-          docker push ghcr.io/${{ github.repository }}/danmu-api:${{ env.VERSION }}
+          docker push ghcr.io/huangxd/danmu-api:${{ env.VERSION }}
