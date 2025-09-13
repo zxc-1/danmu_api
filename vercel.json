@@ -12,6 +12,10 @@
       "dest": "/danmu_api/worker.js"
     },
     {
+      "src": "/api/(.*)",
+      "dest": "/danmu_api/worker.js"
+    },
+    {
       "src": "/([^/]+)/api/(.*)",
       "dest": "/danmu_api/worker.js"
     }
