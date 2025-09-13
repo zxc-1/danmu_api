@@ -687,8 +687,9 @@ async function handleRequest(req, env) {
   if (path === "/" && method === "GET") {
     log("log", "Accessed homepage with repository information");
     return jsonResponse({
-      message: "Welcome to the Danmu API server",
+      message: "Welcome to the MuMu Danmu API server",
       repository: "https://github.com/huangxd-/danmu_api.git",
+      description: "一个人人都能部署的基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式",
       notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
     });
   }

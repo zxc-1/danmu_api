@@ -1,6 +1,6 @@
-# 简单 弹幕 API 服务器
+# MuMu 弹幕 API 服务器
 
-一个基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，以及日志记录。
+一个人人都能部署的基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式。
 
 ## 功能
 - **API 接口**：
@@ -104,6 +104,9 @@
   2. 转到“Settings” > “Variables”。
   3. 添加 `TOKEN` 环境变量，输入你的 API 令牌值。
   4. 保存并部署。
+
+### 手动部署
+创建一个worker，并将danmu_api/worker.js里的代码直接拷贝到你创建的worker.js里，并点击部署。
 
 ## 项目结构
 ```

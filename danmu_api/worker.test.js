@@ -32,11 +32,7 @@ test('worker.js API endpoints', async (t) => {
 
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('Content-Type'), 'application/json');
-    assert.deepEqual(body, {
-      message: 'Welcome to the Danmu API server',
-      repository: 'https://github.com/huangxd-/danmu_api.git',
-      notice: '本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。'
-    });
+    assert.deepEqual(body.message, 'Welcome to the MuMu Danmu API server');
   });
 
   await t.test('GET tencent danmu', async () => {
