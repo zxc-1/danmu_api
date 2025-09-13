@@ -21,9 +21,12 @@ async function parseResponse(response) {
   }
 }
 
+const urlPrefix = "http://localhost:9321";
+const token = "87654321";
+
 test('worker.js API endpoints', async (t) => {
   await t.test('GET / should return welcome message', async () => {
-    const req = new MockRequest('http://localhost:9321/', { method: 'GET' });
+    const req = new MockRequest(urlPrefix, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -37,7 +40,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/search/anime with valid keyword', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/search/anime?keyword=Anime%20A', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/search/anime?keyword=Anime%20A`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -51,7 +54,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/search/anime without keyword', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/search/anime', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/search/anime`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -64,7 +67,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/bangumi/1 should return anime details', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/bangumi/1', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/bangumi/1`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -80,7 +83,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/bangumi/999 should return 404', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/bangumi/999', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/bangumi/999`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -93,7 +96,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/comment/1 should return comment', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/comment/1', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/comment/1`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -106,7 +109,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('GET /api/v2/comment/999 should return 404', async () => {
-    const req = new MockRequest('http://localhost:9321/api/v2/comment/999', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/comment/999`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
@@ -118,10 +121,10 @@ test('worker.js API endpoints', async (t) => {
 
   await t.test('GET /api/logs should return logs as text', async () => {
     // Trigger a log by calling an endpoint
-    const req = new MockRequest('http://localhost:9321/api/v2/search/anime?keyword=Anime%20A', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/api/v2/search/anime?keyword=Anime%20A`, { method: 'GET' });
     await handleRequest(req);
 
-    const logReq = new MockRequest('http://localhost:9321/api/logs', { method: 'GET' });
+    const logReq = new MockRequest(`${urlPrefix}/${token}/api/logs`, { method: 'GET' });
     const res = await handleRequest(logReq);
     const body = await res.text();
 
@@ -131,7 +134,7 @@ test('worker.js API endpoints', async (t) => {
   });
 
   await t.test('Invalid path should return 404', async () => {
-    const req = new MockRequest('http://localhost:9321/invalid', { method: 'GET' });
+    const req = new MockRequest(`${urlPrefix}/${token}/invalid`, { method: 'GET' });
     const res = await handleRequest(req);
     const body = await parseResponse(res);
 
