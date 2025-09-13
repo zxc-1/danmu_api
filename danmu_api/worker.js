@@ -4,9 +4,9 @@ let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
 
-// 日志存储，最多保存 100 行
+// 日志存储，最多保存 500 行
 const logBuffer = [];
-const MAX_LOGS = 100;
+const MAX_LOGS = 500;
 const MAX_ANIMES = 100;
 const allowedPlatforms = ["qiyi", "bilibili1", "imgo", "youku", "qq"];
 
@@ -25,7 +25,7 @@ function addEpisode(url, title) {
     // 检查是否已存在相同的 url
     const exists = episodeIds.some(episode => episode.url === url);
     if (exists) {
-        console.log(`URL ${url} already exists in episodeIds, skipping addition.`);
+        log("log", `URL ${url} already exists in episodeIds, skipping addition.`);
         return null; // 返回 null 表示未添加
     }
 
@@ -35,7 +35,7 @@ function addEpisode(url, title) {
 
     // 添加新对象
     episodeIds.push(newEpisode);
-    console.log(`Added to episodeIds: ${JSON.stringify(newEpisode)}`);
+    log("log", `Added to episodeIds: ${JSON.stringify(newEpisode)}`);
     return newEpisode; // 返回新添加的对象
 }
 
@@ -45,10 +45,10 @@ function removeEpisodeByUrl(url) {
     episodeIds = episodeIds.filter(episode => episode.url !== url);
     const removedCount = initialLength - episodeIds.length;
     if (removedCount > 0) {
-        console.log(`Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
+        log("log", `Removed ${removedCount} episode(s) from episodeIds with URL: ${url}`);
         return true;
     }
-    console.log(`No episode found in episodeIds with URL: ${url}`);
+    log("error", `No episode found in episodeIds with URL: ${url}`);
     return false;
 }
 
@@ -56,10 +56,10 @@ function removeEpisodeByUrl(url) {
 function findUrlById(id) {
     const episode = episodeIds.find(episode => episode.id === id);
     if (episode) {
-        console.log(`Found URL for ID ${id}: ${episode.url}`);
+        log("log", `Found URL for ID ${id}: ${episode.url}`);
         return episode.url;
     }
-    console.log(`No URL found for ID: ${id}`);
+    log("error", `No URL found for ID: ${id}`);
     return null;
 }
 
@@ -67,7 +67,7 @@ function findUrlById(id) {
 function addAnime(anime) {
     // 确保 anime 有 links 属性且是数组
     if (!anime.links || !Array.isArray(anime.links)) {
-        console.log(`Invalid or missing links in anime: ${JSON.stringify(anime)}`);
+        log("error", `Invalid or missing links in anime: ${JSON.stringify(anime)}`);
         return false;
     }
 
@@ -83,7 +83,7 @@ function addAnime(anime) {
                 newLinks.push(episode); // 仅添加成功添加的 episode
             }
         } else {
-            console.log(`Invalid link in anime, missing url: ${JSON.stringify(link)}`);
+            log("error", `Invalid link in anime, missing url: ${JSON.stringify(link)}`);
         }
     });
 
@@ -92,7 +92,7 @@ function addAnime(anime) {
 
     // 添加到 animes
     animes.push(animeCopy);
-    console.log(`Added anime: ${JSON.stringify(animeCopy)}`);
+    log("log", `Added anime: ${JSON.stringify(animeCopy)}`);
 
     // 检查是否超过 MAX_ANIMES，超过则删除最早的
     if (animes.length > MAX_ANIMES) {
@@ -105,13 +105,13 @@ function addAnime(anime) {
 // 删除最早添加的 anime，并从 episodeIds 删除其 links 中的 url
 function removeEarliestAnime() {
     if (animes.length === 0) {
-        console.log("No animes to remove.");
+        log("error", "No animes to remove.");
         return false;
     }
 
     // 移除最早的 anime（第一个元素）
     const removedAnime = animes.shift();
-    console.log(`Removed earliest anime: ${JSON.stringify(removedAnime)}`);
+    log("log", `Removed earliest anime: ${JSON.stringify(removedAnime)}`);
 
     // 从 episodeIds 删除该 anime 的所有 links 中的 url
     if (removedAnime.links && Array.isArray(removedAnime.links)) {
@@ -125,10 +125,156 @@ function removeEarliestAnime() {
     return true;
 }
 
+// =====================
+// 请求工具方法
+// =====================
+
+async function httpGet(url, options) {
+  log("log", `[iOS模拟] HTTP GET: ${url}`);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        ...options.headers,
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    let data;
+
+    if (options.base64Data) {
+      log("log", "base64模式");
+
+      // 先拿二进制
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+
+      // 转换为 Base64
+      let binary = '';
+      const chunkSize = 0x8000; // 分块防止大文件卡死
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        let chunk = uint8Array.subarray(i, i + chunkSize);
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      data = btoa(binary); // 得到 base64 字符串
+
+    } else if (options.zlibMode) {
+      log("log", "zlib模式")
+
+      data = await response.arrayBuffer();
+
+      // 使用 zlib 解压数据
+      const buffer = Buffer.from(data);  // 将二进制数据转成 Buffer（Node.js 中使用）
+
+      let decompressedData;
+      try {
+        decompressedData = zlib.inflateSync(buffer); // 使用同步的 inflate 解压数据
+      } catch (e) {
+        log("error", "[iOS模拟] 解压缩失败", e);
+        throw e;
+      }
+
+      // 将解压的数据转回字符串
+      const decodedData = decompressedData.toString('utf-8');
+      data = decodedData;  // 更新解压后的数据
+    } else {
+      data = await response.text();
+    }
+
+    let parsedData;
+    try {
+      parsedData = JSON.parse(data);  // 尝试将文本解析为 JSON
+    } catch (e) {
+      parsedData = data;  // 如果解析失败，保留原始文本
+    }
+
+    // 获取所有 headers，但特别处理 set-cookie
+    const headers = {};
+    let setCookieValues = [];
+
+    // 遍历 headers 条目
+    for (const [key, value] of response.headers.entries()) {
+      if (key.toLowerCase() === 'set-cookie') {
+        setCookieValues.push(value);
+      } else {
+        headers[key] = value;
+      }
+    }
+
+    // 如果存在 set-cookie 头，将其合并为分号分隔的字符串
+    if (setCookieValues.length > 0) {
+      headers['set-cookie'] = setCookieValues.join(';');
+    }
+    // 模拟 iOS 环境：返回 { data: ... } 结构
+    return {
+      data: parsedData,
+      status: response.status,
+      headers: headers
+    };
+
+  } catch (error) {
+    log("error", `[iOS模拟] 请求失败:`, error.message);
+    throw error;
+  }
+}
+
+async function httpPost(url, body, options = {}) {
+  log("log", `[iOS模拟] HTTP POST: ${url}`);
+
+  // 处理请求头、body 和其他参数
+  const { headers = {}, params, allow_redirects = true } = options;
+  const fetchOptions = {
+    method: 'POST',
+    headers: {
+      ...headers,
+    },
+    body: body
+  };
+
+  if (!allow_redirects) {
+    fetchOptions.redirect = 'manual';  // 禁止重定向
+  }
+
+  try {
+    const response = await fetch(url, fetchOptions);
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.text();
+    let parsedData;
+    try {
+      parsedData = JSON.parse(data);  // 尝试将文本解析为 JSON
+    } catch (e) {
+      parsedData = data;  // 如果解析失败，保留原始文本
+    }
+
+    // 模拟 iOS 环境：返回 { data: ... } 结构
+    return {
+      data: parsedData,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
+    };
+
+  } catch (error) {
+    log("error", `[iOS模拟] 请求失败:`, error.message);
+    throw error;
+  }
+}
+
+// =====================
+// 获取播放链接
+// =====================
+
 // 查询360kan影片信息
 async function get360Animes(title) {
   try {
-    const response = await fetch(
+    const response = await httpGet(
       `https://api.so.360kan.com/index?force_v=1&kw=${encodeURIComponent(title)}&from=&pageno=1&v_ap=1&tab=all`,
       {
         headers: {
@@ -138,17 +284,8 @@ async function get360Animes(title) {
       }
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP错误: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = response.data;
     log("log", "360kan response:", data);
-
-    // 检查API返回状态
-    if (data.msg !== "ok") {
-      throw new Error(data.errorMessage || "API调用失败");
-    }
 
     let animes = [];
     if ('rows' in data.data.longData) {
@@ -169,7 +306,7 @@ async function get360Zongyi(entId, site, year) {
   try {
     let links = [];
     for (let j = 0; j <= 10; j++) {
-      const response = await fetch(
+      const response = await httpGet(
           `https://api.so.360kan.com/episodeszongyi?entid=${entId}&site=${site}&y=${year}&count=20&offset=${j * 20}`,
           {
             headers: {
@@ -179,17 +316,8 @@ async function get360Zongyi(entId, site, year) {
           }
       );
 
-      if (!response.ok) {
-        throw new Error(`HTTP错误: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await response.data;
       log("log", "360kan zongyi response:", data);
-
-      // 检查API返回状态
-      if (data.msg !== "ok") {
-        throw new Error(data.errorMessage || "API调用失败");
-      }
 
       const episodeList = data.data.list;
       if (!episodeList) {
@@ -207,6 +335,173 @@ async function get360Zongyi(entId, site, year) {
     throw error;
   }
 }
+
+// =====================
+// 工具方法
+// =====================
+
+function printFirst200Chars(data) {
+  let dataToPrint;
+
+  if (typeof data === 'string') {
+    dataToPrint = data;  // 如果是字符串，直接使用
+  } else if (Array.isArray(data)) {
+    dataToPrint = JSON.stringify(data);  // 如果是数组，转为字符串
+  } else if (typeof data === 'object') {
+    dataToPrint = JSON.stringify(data);  // 如果是对象，转为字符串
+  } else {
+    log("error", "Unsupported data type");
+    return;
+  }
+
+  log("log", dataToPrint.slice(0, 200));  // 打印前200个字符
+}
+
+function convertToDanmakuXML(contents) {
+  let danmus = []
+  for (const content of contents) {
+    const attributes = [
+      content.timepoint,
+      content.ct,
+      content.size,
+      content.color,
+      content.unixtime,
+      '0',
+      content.uid,
+      '26732601000067074',
+      '1'
+    ].join(',');
+    danmus.push({
+      p: attributes,
+      m: content.content
+    });
+  }
+  log("log", "danmus:", danmus.length);
+  return danmus;
+}
+
+// =====================
+// 获取腾讯弹幕
+// =====================
+
+async function fetchTencentVideo(inputUrl) {
+  log("log", "开始从本地请求腾讯视频弹幕...", inputUrl);
+
+  // 弹幕 API 基础地址
+  const api_danmaku_base = "https://dm.video.qq.com/barrage/base/";
+  const api_danmaku_segment = "https://dm.video.qq.com/barrage/segment/";
+
+  // 解析 URL 获取 vid
+  let vid;
+  // 1. 尝试从查询参数中提取 vid
+  const queryMatch = inputUrl.match(/[?&]vid=([^&]+)/);
+  if (queryMatch) {
+    vid = queryMatch[1]; // 获取 vid 参数值
+  } else {
+    // 2. 从路径末尾提取 vid
+    const pathParts = inputUrl.split('/');
+    const lastPart = pathParts[pathParts.length - 1];
+    vid = lastPart.split('.')[0]; // 去除文件扩展名
+  }
+
+  log("log", "vid:", vid);
+
+  // 获取页面标题
+  let res;
+  try {
+    res = await httpGet(inputUrl, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+    });
+  } catch (error) {
+    log("error", "请求页面失败:", error);
+    return null;
+  }
+
+  // 使用正则表达式提取 <title> 标签内容
+  const titleMatch = res.data.match(/<title[^>]*>(.*?)<\/title>/i);
+  const title = titleMatch ? titleMatch[1].split("_")[0] : "未知标题";
+  log("log", "标题:", title);
+
+  // 获取弹幕基础数据
+  try {
+    res = await httpGet(api_danmaku_base + vid, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+    });
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return null;
+    }
+    log("error", "请求弹幕基础数据失败:", error);
+    return null;
+  }
+
+  // 先把 res.data 转成 JSON
+  const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+
+  // 获取弹幕分段数据
+  const promises = [];
+  const segmentList = Object.values(data.segment_index);
+  for (const item of segmentList) {
+    promises.push(
+      httpGet(`${api_danmaku_segment}${vid}/${item.segment_name}`, {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+      })
+    );
+  }
+
+  log("log", "弹幕分段数量:", promises.length);
+
+  // 解析弹幕数据
+  let contents = [];
+  try {
+    const results = await Promise.allSettled(promises);
+    const datas = results
+      .filter(result => result.status === "fulfilled")
+      .map(result => result.value.data);
+
+    for (let data of datas) {
+      data = typeof data === "string" ? JSON.parse(data) : data;
+      for (const item of data.barrage_list) {
+        const content = {
+            timepoint: 0,	// 弹幕发送时间（秒）
+            ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
+            size: 25,	//字体大小，25 为中，18 为小
+            color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
+            unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
+            uid: 0,		//发送人的 id
+            content: "",
+        };
+        content.timepoint = item.time_offset / 1000;
+        if (item.content_style?.color) {
+          log("log", "弹幕颜色:", JSON.stringify(item.content_style.color));
+        }
+        content.content = item.content;
+        contents.push(content);
+      }
+    }
+  } catch (error) {
+    log("error", "解析弹幕数据失败:", error);
+    return null;
+  }
+
+  printFirst200Chars(contents);
+
+  // 返回结果
+  return convertToDanmakuXML(contents);
+}
+
+// =====================
+// 路由请求相关
+// =====================
 
 function log(level, ...args) {
   const message = args
@@ -253,7 +548,7 @@ async function searchAnime(url) {
     } else if (anime.cat_name === "电视剧" || anime.cat_name === "动漫") {
       for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
         const item = anime.seriesPlaylinks[i];
-        links.push({"name": i+1, "url": item.url, "title": `【${anime.seriesSite}】${anime.titleTxt}(${anime.year})`});
+        links.push({"name": i+1, "url": item.url, "title": `【${anime.seriesSite}】${anime.titleTxt}(${anime.year}) ${i+1}`});
       }
     } else if (anime.cat_name === "综艺") {
       for (const site of Object.keys(anime.playlinks_year)) {
@@ -360,7 +655,25 @@ async function getComment(path) {
     return jsonResponse({ count: 0, comments: [] }, 404);
   }
   log("log", `Fetched comment ID: ${commentId}`);
-  return jsonResponse({ count: 1, comments: [url] });
+
+  log("log", "开始从本地请求弹幕...", url);
+  let danmus = [];
+  if (url.includes('.qq.com')) {
+      danmus = await fetchTencentVideo(url);
+  }
+  // if (url.includes('.iqiyi.com')) {
+  //     return await fetchIqiyi(url);
+  // }
+  // if (url.includes('.mgtv.com')) {
+  //     return await fetchMangoTV(url);
+  // }
+  // if (url.includes('.bilibili.com')) {
+  //     return await fetchBilibili(url);
+  // }
+  // if (url.includes('.youku.com')) {
+  //     return await fetchYouku(url);
+  // }
+  return jsonResponse({ count: danmus.length, comments: danmus });
 }
 
 async function handleRequest(req, env) {
@@ -452,4 +765,4 @@ export async function vercelHandler(req, res) {
 }
 
 // 为了测试导出 handleRequest
-export { handleRequest };
+export { handleRequest, fetchTencentVideo };
