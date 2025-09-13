@@ -68,7 +68,7 @@ async function get360Animes(title) {
     }
 
     let animes = [];
-    if (data.data.longData.length !== 0) {
+    if ('rows' in data.data.longData) {
       animes = data.data.longData.rows;
     }
 
@@ -215,6 +215,10 @@ async function handleRequest(req, env) {
       repository: "https://github.com/huangxd-/danmu_api.git",
       notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
     });
+  }
+
+  if (path === "/favicon.ico" || path === "/robots.txt") {
+    return new Response(null, { status: 204 });
   }
 
   // --- 校验 token ---
