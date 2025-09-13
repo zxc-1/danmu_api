@@ -1,5 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
+const VERSION = "0.0.2";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -687,7 +688,8 @@ async function handleRequest(req, env) {
   if (path === "/" && method === "GET") {
     log("log", "Accessed homepage with repository information");
     return jsonResponse({
-      message: "Welcome to the MuMu Danmu API server",
+      message: "Welcome to the LogVar Danmu API server",
+      version: VERSION,
       repository: "https://github.com/huangxd-/danmu_api.git",
       description: "一个人人都能部署的基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式",
       notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"

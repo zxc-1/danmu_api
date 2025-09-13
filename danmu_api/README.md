@@ -1,4 +1,4 @@
-# MuMu 弹幕 API 服务器
+# LogVar 弹幕 API 服务器
 
 一个人人都能部署的基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式。
 
@@ -117,7 +117,6 @@ danmu_api/
 ├── danmu_api/
 │   ├── README.md       # 项目文档
 │   ├── server.js       # 本地node启动脚本
-│   ├── version         # 定义版本号
 │   ├── worker.js       # 主 API 服务器代码
 │   ├── worker.test.js  # 测试文件
 ├── .gitignore

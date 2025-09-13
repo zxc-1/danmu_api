@@ -32,7 +32,7 @@ test('worker.js API endpoints', async (t) => {
 
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('Content-Type'), 'application/json');
-    assert.deepEqual(body.message, 'Welcome to the MuMu Danmu API server');
+    assert.deepEqual(body.message, 'Welcome to the LogVar Danmu API server');
   });
 
   await t.test('GET tencent danmu', async () => {

@@ -17,11 +17,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 读取 version 文件并设置版本号
-      - name: Read version from file
+      # 从 worker.js 中读取版本号
+      - name: Read version from worker.js
         id: version
         run: |
-          VERSION=$(cat danmu_api/version)
+          VERSION=$(grep 'const VERSION' danmu_api/worker.js | sed -E 's/.*const VERSION = "(.*)".*/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       # 设置 Docker 镜像缓存（可选，加速构建）
