@@ -13,6 +13,9 @@ RUN npm install
 # 复制所有源代码
 COPY danmu_api/ .
 
+# 设置环境变量 TOKEN 默认值
+ENV TOKEN=87654321
+
 # 暴露端口
 EXPOSE 9321
 
