@@ -32,7 +32,7 @@
    ```bash
    npm start
    ```
-   服务器将在 `http://{ip}:9321` 运行。
+   服务器将在 `http://{ip}:9321` 运行，默认token是`87654321`。
    或者使用下面的命令
    ```bash
    # 启动
@@ -43,10 +43,11 @@
 
 4. **测试 API**：
    使用 Postman 或 curl 测试：
-   - `GET http://{ip}:9321/api/v2/search/anime?keyword=Anime%20A`
-   - `GET http://{ip}:9321/api/v2/bangumi/1`
-   - `GET http://{ip}:9321/api/v2/comment/1?withRelated=true&chConvert=1`
-   - `GET http://{ip}:9321/api/logs`
+   - `GET http://{ip}:9321/87654321`
+   - `GET http://{ip}:9321/87654321/api/v2/search/anime?keyword=Anime%20A`
+   - `GET http://{ip}:9321/87654321/api/v2/bangumi/1`
+   - `GET http://{ip}:9321/87654321/api/v2/comment/1?withRelated=true&chConvert=1`
+   - `GET http://{ip}:9321/87654321/api/logs`
 
 ## 使用 Docker 运行
 1. **构建 Docker 镜像**：
@@ -61,7 +62,7 @@
    - 使用`-e TOKEN=your_token_here`设置`TOKEN`环境变量，覆盖Dockerfile中的默认值。
 
 3. **测试 API**：
-   使用 `http://{ip}:9321` 访问上述 API 接口。
+   使用 `http://{ip}:9321/{TOKEN}` 访问上述 API 接口。
 
 ## Docker 一键启动
 1. **拉取镜像**：
@@ -76,7 +77,7 @@
    - 使用`-e TOKEN=your_token_here`设置`TOKEN`环境变量。
 
 3. **测试 API**：
-   使用 `http://{ip}:9321` 访问上述 API 接口。
+   使用 `http://{ip}:9321/{TOKEN}` 访问上述 API 接口。
 
 ## 部署到 Vercel
 

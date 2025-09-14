@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert').strict;
-const { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi} = require('./worker');
+const { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV, fetchBilibili, fetchYouku} = require('./worker');
 
 // Mock Request class for testing
 class MockRequest {
@@ -45,11 +45,32 @@ test('worker.js API endpoints', async (t) => {
   //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
   // });
 
+  // await t.test('GET mango danmu', async () => {
+  //   const res = await fetchMangoTV("https://www.mgtv.com/b/771610/23300622.html");
+  //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
+  // });
+
+  // await t.test('GET bilibili danmu', async () => {
+  //   const res = await fetchBilibili("https://www.bilibili.com/bangumi/play/ep1231564");
+  //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
+  // });
+
+  // await t.test('GET youku danmu', async () => {
+  //   const res = await fetchYouku("https://v.youku.com/v_show/id_XNjQ3ODMyNjU3Mg==.html");
+  //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
+  // });
+
   await t.test('GET realistic danmu', async () => {
     // tencent
     // const keyword = "子夜归";
     // iqiyi
-    const keyword = "赴山海";
+    // const keyword = "赴山海";
+    // mango
+    // const keyword = "锦月如歌";
+    // bilibili
+    const keyword = "国王排名";
+    // youku
+    // const keyword = "黑白局";
 
     const searchUrl = new URL(`${urlPrefix}/${token}/api/v2/search/anime?keyword=${keyword}`);
     const searchRes = await searchAnime(searchUrl);
@@ -63,7 +84,18 @@ test('worker.js API endpoints', async (t) => {
 
     const commentUrl = new URL(`${urlPrefix}/${token}/api/v2/comment/${bangumiData.bangumi.episodes[0].episodeId}?withRelated=true&chConvert=1`);
     const commentRes = await getComment(commentUrl.pathname);
-    const commentData = await commentRes.json();
-    assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
+    try {
+      const commentData = await commentRes.json();
+      assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
+    } catch (e) {
+      if (e instanceof TypeError) {
+        // 确保 commentRes 是字符串，否则可能需要进一步处理
+        assert(typeof commentRes === 'string' && commentRes.trim().startsWith('<?xml version'),
+               `Expected commentRes to start with '<?xml version', but got: ${commentRes.substring(0, 200)}`);
+      } else {
+        // 其他错误继续抛出
+        throw e;
+      }
+    }
   });
 });
