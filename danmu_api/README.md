@@ -51,12 +51,12 @@
 ## 使用 Docker 运行
 1. **构建 Docker 镜像**：
    ```bash
-   docker build -t danmu-api-server .
+   docker build -t danmu-api .
    ```
 
 2. **运行容器**：
    ```bash
-   docker run -d -p 9321:9321 --name danmu-api -e TOKEN=your_token_here danmu-api-server
+   docker run -d -p 9321:9321 --name danmu-api -e TOKEN=your_token_here danmu-api
    ```
    - 使用`-e TOKEN=your_token_here`设置`TOKEN`环境变量，覆盖Dockerfile中的默认值。
 
@@ -66,12 +66,12 @@
 ## Docker 一键启动
 1. **拉取镜像**：
    ```bash
-   docker pull logvar/danmu-api:0.0.1
+   docker pull logvar/danmu-api:latest
    ```
 
 2. **运行容器**：
    ```bash
-   docker run -d -p 9321:9321 --name danmu-api -e TOKEN=your_token_here logvar/danmu-api:0.0.1
+   docker run -d -p 9321:9321 --name danmu-api -e TOKEN=your_token_here logvar/danmu-api:latest
    ```
    - 使用`-e TOKEN=your_token_here`设置`TOKEN`环境变量。
 

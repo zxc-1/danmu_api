@@ -166,22 +166,26 @@ async function httpGet(url, options) {
     } else if (options.zlibMode) {
       log("log", "zlib模式")
 
-      data = await response.arrayBuffer();
+      // 获取 ArrayBuffer
+      const arrayBuffer = await response.arrayBuffer();
 
-      // 使用 zlib 解压数据
-      const buffer = Buffer.from(data);  // 将二进制数据转成 Buffer（Node.js 中使用）
+      // 使用 DecompressionStream 进行解压
+      // "deflate" 对应 zlib 的 inflate
+      const decompressionStream = new DecompressionStream("deflate");
+      const decompressedStream = new Response(
+        new Blob([arrayBuffer]).stream().pipeThrough(decompressionStream)
+      );
 
-      let decompressedData;
+      // 读取解压后的文本
+      let decodedData;
       try {
-        decompressedData = zlib.inflateSync(buffer); // 使用同步的 inflate 解压数据
+        decodedData = await decompressedStream.text();
       } catch (e) {
         log("error", "[iOS模拟] 解压缩失败", e);
         throw e;
       }
 
-      // 将解压的数据转回字符串
-      const decodedData = decompressedData.toString('utf-8');
-      data = decodedData;  // 更新解压后的数据
+      data = decodedData; // 更新解压后的数据
     } else {
       data = await response.text();
     }
@@ -381,6 +385,25 @@ function convertToDanmakuXML(contents) {
   return danmus;
 }
 
+function buildQueryString(params) {
+  let queryString = '';
+
+  // 遍历 params 对象的每个属性
+  for (let key in params) {
+    if (params.hasOwnProperty(key)) {
+      // 如果 queryString 已经有参数了，则添加 '&'
+      if (queryString.length > 0) {
+        queryString += '&';
+      }
+
+      // 将 key 和 value 使用 encodeURIComponent 编码，并拼接成查询字符串
+      queryString += encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+    }
+  }
+
+  return queryString;
+}
+
 // =====================
 // 获取腾讯弹幕
 // =====================
@@ -492,6 +515,150 @@ async function fetchTencentVideo(inputUrl) {
   } catch (error) {
     log("error", "解析弹幕数据失败:", error);
     return null;
+  }
+
+  printFirst200Chars(contents);
+
+  // 返回结果
+  return convertToDanmakuXML(contents);
+}
+
+// =====================
+// 获取爱奇艺弹幕
+// =====================
+
+async function fetchIqiyi(inputUrl) {
+  log("log", "开始从本地请求爱奇艺弹幕...", inputUrl);
+
+  // 弹幕 API 基础地址
+  const api_decode_base = "https://pcw-api.iq.com/api/decode/";
+  const api_video_info = "https://pcw-api.iqiyi.com/video/video/baseinfo/";
+  const api_danmaku_base = "https://cmts.iqiyi.com/bullet/";
+
+  // 解析 URL 获取 tvid
+  let tvid;
+  try {
+    const idMatch = inputUrl.match(/v_(\w+)/);
+    if (!idMatch) {
+      log("error", "无法从 URL 中提取 tvid");
+      return null;
+    }
+    tvid = idMatch[1];
+    log("log", "tvid:", tvid);
+
+    // 获取 tvid 的解码信息
+    const decodeUrl = `${api_decode_base}${tvid}?platformId=3&modeCode=intl&langCode=sg`;
+    let res = await httpGet(decodeUrl, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+    });
+    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    tvid = data.data.toString();
+    log("log", "解码后 tvid:", tvid);
+  } catch (error) {
+    log("error", "请求解码信息失败:", error);
+    return null;
+  }
+
+  // 获取视频基础信息
+  let title, duration, albumid, categoryid;
+  try {
+    const videoInfoUrl = `${api_video_info}${tvid}`;
+    const res = await httpGet(videoInfoUrl, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      },
+    });
+    const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
+    const videoInfo = data.data;
+    title = videoInfo.name || videoInfo.tvName || "未知标题";
+    duration = videoInfo.durationSec;
+    albumid = videoInfo.albumId;
+    categoryid = videoInfo.channelId || videoInfo.categoryId;
+    log("log", "标题:", title, "时长:", duration);
+  } catch (error) {
+    log("error", "请求视频基础信息失败:", error);
+    return null;
+  }
+
+  // 计算弹幕分段数量（每5分钟一个分段）
+  const page = Math.ceil(duration / (60 * 5));
+  log("log", "弹幕分段数量:", page);
+
+  // 构建弹幕请求
+  const promises = [];
+  for (let i = 0; i < page; i++) {
+    const params = {
+        rn: "0.0123456789123456",
+        business: "danmu",
+        is_iqiyi: "true",
+        is_video_page: "true",
+        tvid: tvid,
+        albumid: albumid,
+        categoryid: categoryid,
+        qypid: "01010021010000000000",
+    };
+    let queryParams = buildQueryString(params);
+    const api_url = `${api_danmaku_base}${tvid.slice(-4, -2)}/${tvid.slice(-2)}/${tvid}_300_${i + 1}.z?${queryParams.toString()}`;
+    promises.push(
+        httpGet(api_url, {
+          headers: {
+            "Accpet-Encoding": "gzip",
+            "Content-Type": "application/xml",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+          },
+          zlibMode: true
+        })
+    );
+  }
+
+  // 提取 XML 标签内容的辅助函数
+  function extract(xml, tag) {
+      const reg = new RegExp(`<${tag}>(.*?)</${tag}>`, "g");
+      const res = xml.match(reg)?.map((x) => x.substring(tag.length + 2, x.length - tag.length - 3));
+      return res || [];
+  }
+
+  // 解析弹幕数据
+  let contents = [];
+  try {
+    const results = await Promise.allSettled(promises);
+    const datas = results
+        .filter((result) => result.status === "fulfilled")
+        .map((result) => result.value);
+
+    for (let data of datas) {
+        let xml = data.data;
+
+        // 解析 XML 数据
+        const danmaku = extract(xml, "content");
+        const showTime = extract(xml, "showTime");
+        const color = extract(xml, "color");
+        const step = Math.ceil(danmaku.length * datas.length / 10000);
+
+        for (let i = 0; i < danmaku.length; i += step) {
+            const content = {
+                timepoint: 0,	// 弹幕发送时间（秒）
+                ct: 1,	// 弹幕类型，1-3 为滚动弹幕、4 为底部、5 为顶端、6 为逆向、7 为精确、8 为高级
+                size: 25,	//字体大小，25 为中，18 为小
+                color: 16777215,	//弹幕颜色，RGB 颜色转为十进制后的值，16777215 为白色
+                unixtime: Math.floor(Date.now() / 1000),	//Unix 时间戳格式
+                uid: 0,		//发送人的 id
+                content: "",
+            };
+            content.timepoint = parseFloat(showTime[i]);
+            content.color = parseInt(color[i], 16);
+            content.content = danmaku[i];
+            content.size = 25;
+            contents.push(content);
+        }
+    }
+  } catch (error) {
+      log("error", "解析弹幕数据失败:", error);
+      return null;
   }
 
   printFirst200Chars(contents);
@@ -662,17 +829,17 @@ async function getComment(path) {
   if (url.includes('.qq.com')) {
       danmus = await fetchTencentVideo(url);
   }
-  // if (url.includes('.iqiyi.com')) {
-  //     return await fetchIqiyi(url);
-  // }
+  if (url.includes('.iqiyi.com')) {
+      danmus = await fetchIqiyi(url);
+  }
   // if (url.includes('.mgtv.com')) {
-  //     return await fetchMangoTV(url);
+  //     danmus = await fetchMangoTV(url);
   // }
   // if (url.includes('.bilibili.com')) {
-  //     return await fetchBilibili(url);
+  //     danmus = await fetchBilibili(url);
   // }
   // if (url.includes('.youku.com')) {
-  //     return await fetchYouku(url);
+  //     danmus = await fetchYouku(url);
   // }
   return jsonResponse({ count: danmus.length, comments: danmus });
 }
@@ -768,4 +935,4 @@ export async function vercelHandler(req, res) {
 }
 
 // 为了测试导出 handleRequest
-export { handleRequest, fetchTencentVideo };
+export { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi };
