@@ -68,7 +68,7 @@ test('worker.js API endpoints', async (t) => {
     // mango
     // const keyword = "锦月如歌";
     // bilibili
-    const keyword = "国王排名";
+    // const keyword = "国王排名";
     // youku
     // const keyword = "黑白局";
 
@@ -84,14 +84,30 @@ test('worker.js API endpoints', async (t) => {
 
     const commentUrl = new URL(`${urlPrefix}/${token}/api/v2/comment/${bangumiData.bangumi.episodes[0].episodeId}?withRelated=true&chConvert=1`);
     const commentRes = await getComment(commentUrl.pathname);
+
+    // 先读取 body 为文本（只一次，确保兼容）
+    let responseText;
+    if (typeof commentRes?.text === 'function') {
+      // commentRes 是 Response 对象
+      responseText = await commentRes.text();
+    } else if (typeof commentRes === 'string') {
+      // 已解析的字符串（上游处理）
+      responseText = commentRes;
+    } else {
+      throw new Error(`Unexpected commentRes type: ${typeof commentRes}`);
+    }
+
     try {
-      const commentData = await commentRes.json();
+      // 尝试解析为 JSON
+      const commentData = JSON.parse(responseText);
       assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
     } catch (e) {
-      if (e instanceof TypeError) {
-        // 确保 commentRes 是字符串，否则可能需要进一步处理
-        assert(typeof commentRes === 'string' && commentRes.trim().startsWith('<?xml version'),
-               `Expected commentRes to start with '<?xml version', but got: ${commentRes.substring(0, 200)}`);
+      if (e instanceof SyntaxError) {
+        // JSON 解析失败，检查 XML
+        console.log('Response preview:', responseText.substring(0, 200));
+
+        assert(typeof responseText === 'string' && responseText.trim().startsWith('<?xml version'),
+               `Expected response to start with '<?xml version', but got: ${responseText.substring(0, 200)}`);
       } else {
         // 其他错误继续抛出
         throw e;

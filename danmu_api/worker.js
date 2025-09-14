@@ -1374,6 +1374,19 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+function xmlResponse(data, status = 200) {
+  // 确保 data 是字符串且以 <?xml 开头
+  if (typeof data !== 'string' || !data.trim().startsWith('<?xml')) {
+    throw new Error('Expected data to be an XML string starting with <?xml');
+  }
+
+  // 直接返回 XML 字符串作为 Response 的 body
+  return new Response(data, {
+    status,
+    headers: { "Content-Type": "application/xml" },
+  });
+}
+
 // Extracted function for GET /api/v2/search/anime
 async function searchAnime(url) {
   let curAnimes = [];
@@ -1515,7 +1528,7 @@ async function getComment(path) {
   if (url.includes('.bilibili.com')) {
       danmus = await fetchBilibili(url);
       // bilibili直接返回xml
-      return danmus;
+      return xmlResponse(danmus);
   }
   if (url.includes('.youku.com')) {
       // 处理302场景
@@ -1542,7 +1555,7 @@ async function handleRequest(req, env) {
       message: "Welcome to the LogVar Danmu API server",
       version: VERSION,
       repository: "https://github.com/huangxd-/danmu_api.git",
-      description: "一个人人都能部署的基于 js 的弹幕 API 服务器，兼容弹弹play的搜索、详情查询和弹幕获取功能，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式",
+      description: "一个人人都能部署的基于 js 的弹幕 API 服务器，支持爱优腾芒哔人弹幕直接获取，兼容弹弹play的搜索、详情查询和弹幕获取接口，并提供日志记录，支持vercel/cloudflare/docker/claw等部署方式。",
       notice: "本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。"
     });
   }
