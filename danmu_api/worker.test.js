@@ -77,8 +77,8 @@ test('worker.js API endpoints', async (t) => {
     // const keyword = "国王排名";
     // youku
     // const keyword = "黑白局";
-
-    const keyword = "地球超新鲜";
+    // renren
+    const keyword = "瑞克和莫蒂";
 
     const searchUrl = new URL(`${urlPrefix}/${token}/api/v2/search/anime?keyword=${keyword}`);
     const searchRes = await searchAnime(searchUrl);

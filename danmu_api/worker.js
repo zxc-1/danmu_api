@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "0.0.3";
+const VERSION = "1.0.0";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -375,7 +375,7 @@ async function getVodAnimes(title) {
     if (response && response.data && response.data.list && response.data.list.length > 0) {
       log("log", `请求 ${vodServer} 成功`);
       const data = response.data;
-      console.log("vod response: ↓↓↓");
+      log("log", "vod response: ↓↓↓");
       printFirst200Chars(data);
       return data.list;
     } else {
@@ -1460,6 +1460,781 @@ async function fetchOtherServer(inputUrl) {
 }
 
 // =====================
+// 人人视频 配置 & 工具
+// =====================
+// ---------------------
+// 通用工具
+// ---------------------
+function sortedQueryString(params = {}) {
+  const normalized = {};
+  for (const [k, v] of Object.entries(params)) {
+    if (typeof v === "boolean") normalized[k] = v ? "true" : "false";
+    else if (v == null) normalized[k] = "";
+    else normalized[k] = String(v);
+  }
+
+  // 获取对象的所有键并排序
+  const keys = [];
+  for (const key in normalized) {
+    if (Object.prototype.hasOwnProperty.call(normalized, key)) {
+      keys.push(key);
+    }
+  }
+  keys.sort();
+
+  // 构建键值对数组
+  const pairs = [];
+  for (const key of keys) {
+    // 对键和值进行 URL 编码
+    const encodedKey = encodeURIComponent(key);
+    const encodedValue = encodeURIComponent(normalized[key]);
+    pairs.push(`${encodedKey}=${encodedValue}`);
+  }
+
+  // 用 & 连接所有键值对
+  return pairs.join('&');
+}
+
+function updateQueryString(url, params) {
+  // 解析 URL
+  let baseUrl = url;
+  let queryString = '';
+  const hashIndex = url.indexOf('#');
+  let hash = '';
+  if (hashIndex !== -1) {
+    baseUrl = url.substring(0, hashIndex);
+    hash = url.substring(hashIndex);
+  }
+  const queryIndex = baseUrl.indexOf('?');
+  if (queryIndex !== -1) {
+    queryString = baseUrl.substring(queryIndex + 1);
+    baseUrl = baseUrl.substring(0, queryIndex);
+  }
+
+  // 解析现有查询字符串为对象
+  const queryParams = {};
+  if (queryString) {
+    const pairs = queryString.split('&');
+    for (const pair of pairs) {
+      if (pair) {
+        const [key, value = ''] = pair.split('=').map(decodeURIComponent);
+        queryParams[key] = value;
+      }
+    }
+  }
+
+  // 更新参数
+  for (const key in params) {
+    if (Object.prototype.hasOwnProperty.call(params, key)) {
+      queryParams[key] = params[key];
+    }
+  }
+
+  // 构建新的查询字符串
+  const newQuery = [];
+  for (const key in queryParams) {
+    if (Object.prototype.hasOwnProperty.call(queryParams, key)) {
+      newQuery.push(
+        `${encodeURIComponent(key)}=${encodeURIComponent(queryParams[key])}`
+      );
+    }
+  }
+
+  // 拼接最终 URL
+  return baseUrl + (newQuery.length ? '?' + newQuery.join('&') : '') + hash;
+}
+
+function getPathname(url) {
+  // 查找路径的起始位置（跳过协议和主机部分）
+  let pathnameStart = url.indexOf('//') + 2;
+  if (pathnameStart === 1) pathnameStart = 0; // 如果没有协议部分
+  const pathStart = url.indexOf('/', pathnameStart);
+  if (pathStart === -1) return '/'; // 如果没有路径，返回默认根路径
+  const queryStart = url.indexOf('?', pathStart);
+  const hashStart = url.indexOf('#', pathStart);
+  // 确定路径的结束位置（查询字符串或片段之前）
+  let pathEnd = queryStart !== -1 ? queryStart : (hashStart !== -1 ? hashStart : url.length);
+  const pathname = url.substring(pathStart, pathEnd);
+  return pathname || '/';
+}
+
+function generateSignature(method, aliId, ct, cv, timestamp, path, sortedQuery, secret) {
+  const signStr = `${method.toUpperCase()}\naliId:${aliId}\nct:${ct}\ncv:${cv}\nt:${timestamp}\n${path}?${sortedQuery}`;
+  return createHmacSha256(secret, signStr);
+}
+
+function buildSignedHeaders({ method, url, params = {}, deviceId, token }) {
+  const ClientProfile = {
+    client_type: "web_pc",
+    client_version: "1.0.0",
+    user_agent: "Mozilla/5.0",
+    origin: "https://rrsp.com.cn",
+    referer: "https://rrsp.com.cn/",
+  };
+  const pathname = getPathname(url);
+  const qs = sortedQueryString(params);
+  const nowMs = Date.now();
+  const SIGN_SECRET = "ES513W0B1CsdUrR13Qk5EgDAKPeeKZY";
+  const xCaSign = generateSignature(
+    method, deviceId, ClientProfile.client_type, ClientProfile.client_version,
+    nowMs, pathname, qs, SIGN_SECRET
+  );
+  return {
+    clientVersion: ClientProfile.client_version,
+    deviceId,
+    clientType: ClientProfile.client_type,
+    t: String(nowMs),
+    aliId: deviceId,
+    umid: deviceId,
+    token: token || "",
+    cv: ClientProfile.client_version,
+    ct: ClientProfile.client_type,
+    uet: "9",
+    "x-ca-sign": xCaSign,
+    Accept: "application/json",
+    "User-Agent": ClientProfile.user_agent,
+    Origin: ClientProfile.origin,
+    Referer: ClientProfile.referer,
+  };
+}
+
+// ====================== AES-128-ECB 完整实现 ======================
+
+// S盒
+const SBOX = [
+  0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+  0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+  0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+  0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+  0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+  0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+  0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+  0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+  0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+  0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+  0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+  0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+  0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+  0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+  0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+  0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
+];
+
+// 轮常量
+const RCON = [
+  0x00,0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80,0x1b,0x36
+];
+
+// 字节异或
+function xor(a,b) {
+  const out = new Uint8Array(a.length);
+  for(let i=0;i<a.length;i++) out[i]=a[i]^b[i];
+  return out;
+}
+
+// 字循环左移
+function rotWord(word){
+  return Uint8Array.from([word[1],word[2],word[3],word[0]]);
+}
+
+// 字节代换
+function subWord(word){
+  return Uint8Array.from(word.map(b=>SBOX[b]));
+}
+
+// 扩展密钥 16 字节 -> 176 字节
+function keyExpansion(key) {
+  const Nk = 4, Nb=4, Nr=10;
+  const w = new Array(Nb*(Nr+1));
+  for(let i=0;i<Nk;i++){
+    w[i] = key.slice(4*i,4*i+4);
+  }
+  for(let i=Nk;i<Nb*(Nr+1);i++){
+    let temp = w[i-1];
+    if(i%Nk===0) temp = xor(subWord(rotWord(temp)), Uint8Array.from([RCON[i/Nk],0,0,0]));
+    w[i]=xor(w[i-Nk],temp);
+  }
+  return w;
+}
+
+// AES-128 解密单块 (16 字节)
+function aesDecryptBlock(input, w) {
+  const Nb=4, Nr=10;
+  let state = new Uint8Array(input);
+  state = addRoundKey(state, w.slice(Nr*Nb,(Nr+1)*Nb));
+  for(let round=Nr-1;round>=1;round--){
+    state = invShiftRows(state);
+    state = invSubBytes(state);
+    state = addRoundKey(state, w.slice(round*Nb,(round+1)*Nb));
+    state = invMixColumns(state);
+  }
+  state = invShiftRows(state);
+  state = invSubBytes(state);
+  state = addRoundKey(state, w.slice(0,Nb));
+  return state;
+}
+
+// AES 辅助函数
+function addRoundKey(state, w){
+  const out = new Uint8Array(16);
+  for(let c=0;c<4;c++)
+    for(let r=0;r<4;r++)
+      out[r+4*c]=state[r+4*c]^w[c][r];
+  return out;
+}
+
+function invSubBytes(state){
+  const INV_SBOX = new Array(256);
+  for(let i=0;i<256;i++) INV_SBOX[SBOX[i]]=i;
+  return Uint8Array.from(state.map(b=>INV_SBOX[b]));
+}
+
+function invShiftRows(state){
+  const out = new Uint8Array(16);
+  for(let r=0;r<4;r++)
+    for(let c=0;c<4;c++)
+      out[r+4*c]=state[r+4*((c-r+4)%4)];
+  return out;
+}
+
+function invMixColumns(state){
+  function mul(a,b){
+    let p=0;
+    for(let i=0;i<8;i++){
+      if(b&1) p^=a;
+      let hi=(a&0x80);
+      a=(a<<1)&0xFF;
+      if(hi) a^=0x1b;
+      b>>=1;
+    }
+    return p;
+  }
+  const out = new Uint8Array(16);
+  for(let c=0;c<4;c++){
+    const col = state.slice(4*c,4*c+4);
+    out[4*c+0]=mul(col[0],0x0e)^mul(col[1],0x0b)^mul(col[2],0x0d)^mul(col[3],0x09);
+    out[4*c+1]=mul(col[0],0x09)^mul(col[1],0x0e)^mul(col[2],0x0b)^mul(col[3],0x0d);
+    out[4*c+2]=mul(col[0],0x0d)^mul(col[1],0x09)^mul(col[2],0x0e)^mul(col[3],0x0b);
+    out[4*c+3]=mul(col[0],0x0b)^mul(col[1],0x0d)^mul(col[2],0x09)^mul(col[3],0x0e);
+  }
+  return out;
+}
+
+// ====================== ECB 模式解密 ======================
+function aesDecryptECB(cipherBytes, keyBytes){
+  const w = keyExpansion(keyBytes);
+  const blockSize = 16;
+  const result = new Uint8Array(cipherBytes.length);
+  for(let i=0;i<cipherBytes.length;i+=blockSize){
+    const block = cipherBytes.slice(i,i+blockSize);
+    const decrypted = aesDecryptBlock(block,w);
+    result.set(decrypted,i);
+  }
+  return result;
+}
+
+// ====================== PKCS#7 去填充 ======================
+function pkcs7Unpad(data){
+  const pad = data[data.length-1];
+  return data.slice(0,data.length-pad);
+}
+
+// ====================== Base64 解码 ======================
+function base64ToBytes(b64) {
+  // 先把 Base64 字符串转换成普通字符
+  const binaryString = (typeof atob === 'function')
+    ? atob(b64) // 浏览器环境
+    : BufferBase64Decode(b64); // Node / React Native 自定义
+
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+// 自定义 Base64 解码函数
+function BufferBase64Decode(b64) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = '';
+  let buffer = 0, bits = 0;
+  for (let i = 0; i < b64.length; i++) {
+    const c = b64.charAt(i);
+    if (c === '=') break;
+    const val = chars.indexOf(c);
+    buffer = (buffer << 6) | val;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      str += String.fromCharCode((buffer >> bits) & 0xFF);
+    }
+  }
+  return str;
+}
+
+// ====================== 主函数 ======================
+// Uint8Array UTF-8 解码成字符串，替代 TextDecoder
+function utf8BytesToString(bytes) {
+  let str = "";
+  let i = 0;
+  while (i < bytes.length) {
+    const b1 = bytes[i++];
+    if (b1 < 0x80) {
+      str += String.fromCharCode(b1);
+    } else if (b1 >= 0xc0 && b1 < 0xe0) {
+      const b2 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x1f) << 6) | (b2 & 0x3f));
+    } else if (b1 >= 0xe0 && b1 < 0xf0) {
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      str += String.fromCharCode(((b1 & 0x0f) << 12) | ((b2 & 0x3f) << 6) | (b3 & 0x3f));
+    } else if (b1 >= 0xf0) {
+      // surrogate pair
+      const b2 = bytes[i++];
+      const b3 = bytes[i++];
+      const b4 = bytes[i++];
+      const codepoint = ((b1 & 0x07) << 18) |
+                        ((b2 & 0x3f) << 12) |
+                        ((b3 & 0x3f) << 6) |
+                        (b4 & 0x3f);
+      const cp = codepoint - 0x10000;
+      str += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 0x3FF));
+    }
+  }
+  return str;
+}
+
+// 同时替换 TextEncoder
+function stringToUtf8Bytes(str) {
+  const bytes = [];
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    if (code < 0x80) {
+      bytes.push(code);
+    } else if (code < 0x800) {
+      bytes.push(0xc0 | (code >> 6));
+      bytes.push(0x80 | (code & 0x3f));
+    } else if (code < 0xd800 || code >= 0xe000) {
+      bytes.push(0xe0 | (code >> 12));
+      bytes.push(0x80 | ((code >> 6) & 0x3f));
+      bytes.push(0x80 | (code & 0x3f));
+    } else {
+      // surrogate pair
+      i++;
+      const code2 = str.charCodeAt(i);
+      const codePoint = 0x10000 + (((code & 0x3ff) << 10) | (code2 & 0x3ff));
+      bytes.push(0xf0 | (codePoint >> 18));
+      bytes.push(0x80 | ((codePoint >> 12) & 0x3f));
+      bytes.push(0x80 | ((codePoint >> 6) & 0x3f));
+      bytes.push(0x80 | (codePoint & 0x3f));
+    }
+  }
+  return new Uint8Array(bytes);
+}
+
+// 修改后的 aesDecryptBase64
+function aesDecryptBase64(cipherB64, keyStr) {
+  try {
+    const cipherBytes = base64ToBytes(cipherB64);
+    const keyBytes = stringToUtf8Bytes(keyStr);
+    const decryptedBytes = aesDecryptECB(cipherBytes, keyBytes);
+    const unpadded = pkcs7Unpad(decryptedBytes);
+    return utf8BytesToString(unpadded);
+  } catch (e) {
+    log("error", e);
+    return null;
+  }
+}
+
+function autoDecode(anything) {
+  const text = typeof anything === "string" ? anything.trim() : JSON.stringify(anything ?? "");
+  try {
+    return JSON.parse(text);
+  } catch {}
+
+  const AES_KEY = "3b744389882a4067"; // 直接传字符串
+  const dec = aesDecryptBase64(text, AES_KEY); // aesDecryptBase64 内会 TextEncoder.encode
+  if (dec != null) {
+    try {
+      return JSON.parse(dec);
+    } catch {
+      return dec;
+    }
+  }
+  return text;
+}
+
+function str2bytes(str) {
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        let code = str.charCodeAt(i);
+        if (code < 0x80) {
+            bytes.push(code);
+        } else if (code < 0x800) {
+            bytes.push(0xc0 | (code >> 6));
+            bytes.push(0x80 | (code & 0x3f));
+        } else if (code < 0x10000) {
+            bytes.push(0xe0 | (code >> 12));
+            bytes.push(0x80 | ((code >> 6) & 0x3f));
+            bytes.push(0x80 | (code & 0x3f));
+        }
+    }
+    return bytes;
+}
+
+// ===================== Base64 编码 =====================
+function bytesToBase64(bytes) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    let i;
+    for (i = 0; i + 2 < bytes.length; i += 3) {
+        result += chars[bytes[i] >> 2];
+        result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+        result += chars[((bytes[i + 1] & 15) << 2) | (bytes[i + 2] >> 6)];
+        result += chars[bytes[i + 2] & 63];
+    }
+    if (i < bytes.length) {
+        result += chars[bytes[i] >> 2];
+        if (i + 1 < bytes.length) {
+            result += chars[((bytes[i] & 3) << 4) | (bytes[i + 1] >> 4)];
+            result += chars[(bytes[i + 1] & 15) << 2];
+            result += '=';
+        } else {
+            result += chars[(bytes[i] & 3) << 4];
+            result += '==';
+        }
+    }
+    return result;
+}
+
+// ===================== SHA256 算法 =====================
+// 纯 JS SHA256，返回字节数组
+function sha256(ascii) {
+    function rightRotate(n, x) { return (x >>> n) | (x << (32 - n)); }
+
+    let maxWord = Math.pow(2, 32);
+    let words = [], asciiBitLength = ascii.length * 8;
+
+    for (let i = 0; i < ascii.length; i++) {
+        words[i >> 2] |= ascii.charCodeAt(i) << ((3 - i) % 4 * 8);
+    }
+
+    words[ascii.length >> 2] |= 0x80 << ((3 - ascii.length % 4) * 8);
+    words[((ascii.length + 8) >> 6) * 16 + 15] = asciiBitLength;
+
+    let w = new Array(64), hash = [
+        0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+        0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+    ];
+
+    const k = [
+        0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+        0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+        0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+        0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+        0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+        0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+        0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+        0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+    ];
+
+    for (let j = 0; j < words.length; j += 16) {
+        let a = hash[0], b = hash[1], c = hash[2], d = hash[3],
+            e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+
+        for (let i = 0; i < 64; i++) {
+            if (i < 16) w[i] = words[j + i] | 0;
+            else {
+                const s0 = rightRotate(7, w[i-15]) ^ rightRotate(18, w[i-15]) ^ (w[i-15]>>>3);
+                const s1 = rightRotate(17, w[i-2]) ^ rightRotate(19, w[i-2]) ^ (w[i-2]>>>10);
+                w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+            }
+            const S1 = rightRotate(6, e) ^ rightRotate(11, e) ^ rightRotate(25, e);
+            const ch = (e & f) ^ (~e & g);
+            const temp1 = (h + S1 + ch + k[i] + w[i]) | 0;
+            const S0 = rightRotate(2, a) ^ rightRotate(13, a) ^ rightRotate(22, a);
+            const maj = (a & b) ^ (a & c) ^ (b & c);
+            const temp2 = (S0 + maj) | 0;
+
+            h = g; g = f; f = e; e = (d + temp1) | 0;
+            d = c; c = b; b = a; a = (temp1 + temp2) | 0;
+        }
+
+        hash[0] = (hash[0] + a) | 0;
+        hash[1] = (hash[1] + b) | 0;
+        hash[2] = (hash[2] + c) | 0;
+        hash[3] = (hash[3] + d) | 0;
+        hash[4] = (hash[4] + e) | 0;
+        hash[5] = (hash[5] + f) | 0;
+        hash[6] = (hash[6] + g) | 0;
+        hash[7] = (hash[7] + h) | 0;
+    }
+
+    // 转为字节数组
+    const bytes = [];
+    for (let h of hash) {
+        bytes.push((h >> 24) & 0xFF);
+        bytes.push((h >> 16) & 0xFF);
+        bytes.push((h >> 8) & 0xFF);
+        bytes.push(h & 0xFF);
+    }
+    return bytes;
+}
+
+// ===================== HMAC-SHA256 =====================
+function createHmacSha256(key, message) {
+    const blockSize = 64; // 512 bit
+    let keyBytes = str2bytes(key);
+    if (keyBytes.length > blockSize) keyBytes = sha256(key);
+    if (keyBytes.length < blockSize) keyBytes = keyBytes.concat(Array(blockSize - keyBytes.length).fill(0));
+
+    const oKeyPad = keyBytes.map(b => b ^ 0x5c);
+    const iKeyPad = keyBytes.map(b => b ^ 0x36);
+
+    const innerHash = sha256(String.fromCharCode(...iKeyPad) + message);
+    const hmacBytes = sha256(String.fromCharCode(...oKeyPad) + String.fromCharCode(...innerHash));
+
+    return bytesToBase64(hmacBytes);
+}
+
+async function renrenHttpGet(url, { params = {}, headers = {} } = {}) {
+  const u = updateQueryString(url, params)
+  const resp = await httpGet(u, {
+      headers: headers,
+  });
+  return resp;
+}
+
+function generateDeviceId() {
+  return (Math.random().toString(36).slice(2)).toUpperCase();
+}
+
+async function renrenRequest(method, url, params = {}) {
+  const deviceId = generateDeviceId();
+  const headers = buildSignedHeaders({ method, url, params, deviceId });
+  const resp = await httpGet(url + "?" + sortedQueryString(params), {
+      headers: headers,
+  });
+  return resp;
+}
+
+// ---------------------
+// 人人视频搜索
+// ---------------------
+async function renrenSearch(keyword, episodeInfo = null) {
+  const parsedKeyword = { title: keyword, season: null }; // 简化 parse_search_keyword
+  const searchTitle = parsedKeyword.title;
+  const searchSeason = parsedKeyword.season;
+
+  const lock = { value: false };
+  const lastRequestTime = { value: 0 };
+  let allResults = await performNetworkSearch(searchTitle, episodeInfo, { lockRef: lock, lastRequestTimeRef: lastRequestTime, minInterval: 400 });
+
+  if (searchSeason == null) return allResults;
+
+  // 按 season 过滤
+  return allResults.filter(r => r.season === searchSeason);
+}
+
+async function performNetworkSearch(
+  keyword,
+  episodeInfo = null,
+  {
+    lockRef = null,
+    lastRequestTimeRef = { value: 0 },  // 调用方传引用
+    minInterval = 500                   // 默认节流间隔（毫秒）
+  } = {}
+) {
+  const url = `https://api.rrmj.plus/m-station/search/drama`;
+  const params = { keywords: keyword, size: 20, order: "match", search_after: "", isExecuteVipActivity: true };
+
+  // 🔒 锁逻辑（可选）
+  if (lockRef) {
+    while (lockRef.value) await new Promise(r => setTimeout(r, 50));
+    lockRef.value = true;
+  }
+
+  // ⏱️ 节流逻辑（依赖 lastRequestTimeRef）
+  const now = Date.now();
+  const dt = now - lastRequestTimeRef.value;
+  if (dt < minInterval) await new Promise(r => setTimeout(r, minInterval - dt));
+
+  const resp = await renrenRequest("GET", url, params);
+  lastRequestTimeRef.value = Date.now(); // 更新引用
+
+  if (lockRef) lockRef.value = false;
+
+  if (!resp.data) return [];
+
+  const decoded = autoDecode(resp.data);
+  const list = decoded?.data?.searchDramaList || [];
+  return list.map((item, idx) => ({
+    provider: "renren",
+    mediaId: String(item.id),
+    title: String(item.title || "").replace(/<[^>]+>/g, "").replace(/:/g, "："),
+    type: "tv_series",
+    season: null,
+    year: item.year,
+    imageUrl: item.cover,
+    episodeCount: item.episodeTotal,
+    currentEpisodeIndex: episodeInfo?.episode ?? null,
+  }));
+}
+
+// ---------------------
+// 人人视频URL信息提取
+// ---------------------
+async function getInfoFromUrl(url) {
+  const m = String(url).match(/\/v\/(\d+)/);
+  if (!m) return null;
+  const dramaId = m[1];
+  const detail = await fetchDramaDetail(dramaId);
+  if (!detail) return null;
+  const titleClean = String(detail.dramaInfo.title).replace(/<[^>]+>/g,"").replace(/:/g,"：");
+  const searchResults = await search(titleClean);
+  const bestMatch = searchResults.find(r=>r.mediaId===dramaId);
+  if (bestMatch && !bestMatch.episodeCount) bestMatch.episodeCount = (detail.episodeList?.length || 0);
+  if (bestMatch) return bestMatch;
+  return {
+    provider: "renren",
+    mediaId: dramaId,
+    title: titleClean,
+    type: "tv_series",
+    season: null,
+    episodeCount: (detail.episodeList?.length || null)
+  };
+}
+
+function getIdFromUrl(url) {
+  const m = String(url).match(/\/v\/\d+\/(\d+)/);
+  return m ? m[1] : null;
+}
+
+function formatEpisodeIdForComments(providerEpisodeId) {
+  return String(providerEpisodeId);
+}
+
+async function fetchDramaDetail(dramaId) {
+  const url = `https://api.rrmj.plus/m-station/drama/page`;
+  const params = { hsdrOpen:0,isAgeLimit:0,dramaId:String(dramaId),hevcOpen:1 };
+  const resp = await renrenRequest("GET", url, params);
+  if (!resp.data) return null;
+  const decoded = autoDecode(resp.data);
+  return decoded?.data || null;
+}
+
+async function _episodeCountFromSid(dramaId) {
+  const detail = await fetchDramaDetail(dramaId);
+  if (!detail || !detail.episodeList) return null;
+  return detail.episodeList.filter(ep => String(ep.sid).trim()).length;
+}
+
+async function getEpisodes(mediaId, targetEpisodeIndex=null, dbMediaType=null) {
+  const detail = await fetchDramaDetail(mediaId);
+  if (!detail || !detail.episodeList) return [];
+
+  let episodes = [];
+  detail.episodeList.forEach((ep, idx)=>{
+    const sid = String(ep.sid || "").trim();
+    if(!sid) return;
+    const title = String(ep.title || `第${idx+1}`.padStart(2,"0")+"集");
+    episodes.push({ sid, order: idx+1, title });
+  });
+
+  if(targetEpisodeIndex) episodes = episodes.filter(e=>e.order===targetEpisodeIndex);
+
+  return episodes.map(e=>({
+    provider: "renren",
+    episodeId: e.sid,
+    title: e.title,
+    episodeIndex: e.order,
+    url: null
+  }));
+}
+
+// ---------------------
+// 人人视频弹幕
+// ---------------------
+async function fetchEpisodeDanmu(sid) {
+  const ClientProfile = {
+    user_agent: "Mozilla/5.0",
+    origin: "https://rrsp.com.cn",
+    referer: "https://rrsp.com.cn/",
+  };
+  const url = `https://static-dm.rrmj.plus/v1/produce/danmu/EPISODE/${sid}`;
+  const headers = {
+    "Accept": "application/json",
+    "User-Agent": ClientProfile.user_agent,
+    "Origin": ClientProfile.origin,
+    "Referer": ClientProfile.referer,
+  };
+  const resp = await renrenHttpGet(url, { headers });
+  if (!resp.data) return null;
+  const data = autoDecode(resp.data);
+  if (Array.isArray(data)) return data;
+  if (data?.data && Array.isArray(data.data)) return data.data;
+  return null;
+}
+
+function parseRRSPPFields(pField) {
+  const parts = String(pField).split(",");
+  const num = (i, cast, dft) => { try { return cast(parts[i]); } catch { return dft; } };
+  const timestamp = num(0, parseFloat, 0);
+  const mode = num(1, x=>parseInt(x,10),1);
+  const size = num(2, x=>parseInt(x,10),25);
+  const color = num(3, x=>parseInt(x,10),16777215);
+  const userId = parts[6] || "";
+  const contentId = parts[7] || `${timestamp}:${userId}`;
+  return { timestamp, mode, size, color, userId, contentId };
+}
+
+function formatComments(items) {
+  const unique = {};
+  for(const it of items){
+    const text = String(it.d||"");
+    const meta = parseRRSPPFields(it.p);
+    if(!unique[meta.contentId]) unique[meta.contentId] = { content: text, ...meta };
+  }
+
+  const grouped = {};
+  for(const c of Object.values(unique)){
+    if(!grouped[c.content]) grouped[c.content] = [];
+    grouped[c.content].push(c);
+  }
+
+  const processed = [];
+  for(const [content, group] of Object.entries(grouped)){
+    if(group.length===1) processed.push(group[0]);
+    else{
+      const first = group.reduce((a,b)=>a.timestamp<b.timestamp?a:b);
+      processed.push({...first, content:`${first.content} X${group.length}`});
+    }
+  }
+
+  return processed.map(c=>({
+    cid: Number(c.contentId),
+    p: `${c.timestamp.toFixed(2)},${c.mode},${c.color},[renren]`,
+    m: c.content,
+    t: c.timestamp
+  }));
+}
+
+async function getRenRenComments(episodeId, progressCallback=null){
+  if(progressCallback) await progressCallback(5,"开始获取弹幕人人弹幕");
+  log("log", "开始获取弹幕人人弹幕");
+  const raw = await fetchEpisodeDanmu(episodeId);
+  if(progressCallback) await progressCallback(85,`原始弹幕 ${raw.length} 条，正在规范化`);
+  log("log", `原始弹幕 ${raw.length} 条，正在规范化`);
+  const formatted = formatComments(raw);
+  if(progressCallback) await progressCallback(100,`弹幕处理完成，共 ${formatted.length} 条`);
+  log("log", `弹幕处理完成，共 ${formatted.length} 条`);
+  // 输出前五条弹幕
+  log("log", "Top 5 danmus:", JSON.stringify(formatted.slice(0, 5), null, 2));
+  return formatted;
+}
+
+// =====================
 // 路由请求相关
 // =====================
 
@@ -1619,6 +2394,45 @@ async function searchAnime(url) {
     }
   }
 
+  // 查询renren
+  const results = await renrenSearch(queryTitle);
+  log("log", "人人视频搜索结果：", results);
+
+  let animesRenren = results.filter(s => s.title.includes(queryTitle));
+  for (const anime of animesRenren) {
+    const eps = await getEpisodes(anime.mediaId);
+    printFirst200Chars(eps);
+
+    let links = [];
+    for (const ep of eps) {
+      links.push({"name": ep.episodeIndex, "url": ep.episodeId, "title": `【${ep.provider}】${anime.title}(${anime.year}) ${ep.title}`});
+    }
+
+    let transformedAnime = {
+      animeId: Number(anime.mediaId), // Mapping animeId to id
+      bangumiId: String(anime.mediaId), // Mapping bangumiId to id
+      animeTitle: `${anime.title}(${anime.year})【${anime.type}】from renren`, // Mapping animeTitle to titleTxt
+      type: anime.type, // Mapping type to cat_name
+      typeDescription: anime.type, // Mapping typeDescription to cat_name
+      imageUrl: anime.imageUrl, // Mapping imageUrl to cover
+      startDate: `${anime.year}-01-01T00:00:00`, // Start date to the year field in ISO format
+      episodeCount: links.length, // Mapping episodeCount to length of seriesPlaylinks
+      rating: 0, // Default rating as 0
+      isFavorited: true, // Assuming all anime are favorited by default
+    };
+
+    curAnimes.push(transformedAnime);
+    // Check if the anime already exists in the animes array
+    const exists = animes.some(existingAnime => existingAnime.animeId === transformedAnime.animeId);
+    if (!exists) {
+      const transformedAnimeCopy = { ...transformedAnime, links: links };
+      addAnime(transformedAnimeCopy);
+    }
+    if (animes.length > MAX_ANIMES) {
+      removeEarliestAnime();
+    }
+  }
+
   return jsonResponse({
     errorCode: 0,
     success: true,
@@ -1713,6 +2527,12 @@ async function getComment(path) {
   }
   if (url.includes('.youku.com')) {
       danmus = await fetchYouku(url);
+  }
+
+  // 请求人人弹幕
+  const urlPattern = /^(https?:\/\/)?([\w.-]+)\.([a-z]{2,})(\/.*)?$/i;
+  if (!urlPattern.test(url)) {
+      danmus = await getRenRenComments(url);
   }
 
   // 如果弹幕为空，则请求第三方弹幕服务器作为兜底

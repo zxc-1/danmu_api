@@ -111,7 +111,20 @@
   4. 保存并部署。
 
 ### 手动部署
-创建一个worker，并将danmu_api/worker.js里的代码直接拷贝到你创建的worker.js里，并点击部署。
+创建一个worker，将`danmu_api/worker.js`里的代码直接拷贝到你创建的`worker.js`里，然后点击部署。
+
+## API食用指南
+支持 forward/senplayer 等支持弹幕API的播放器。
+以`senplayer`为例：
+1. 获取到部署之后的API地址，如`http://192.168.1.7:9321/87654321`，其中`87654321`是默认token，前提是没有传TOKEN环境变量
+2. 将API地址填入自定义弹幕API，在`设置 - 弹幕设置 - 自定义弹幕API`
+3. 播放界面点击`弹幕按钮 - 搜索弹幕`，选择你的弹幕API，会根据标题进行搜索，等待一段时间，选择剧集就行。
+<img src="https://i.mji.rip/2025/09/14/1dae193008f23e507d3cc3733a92f0a1.jpeg" style="width:400px" />
+<img src="https://i.mji.rip/2025/09/14/506fd7810928088d7450be00f67f27e6.png" style="width:400px" />
+<img src="https://i.mji.rip/2025/09/14/e206ab329c232d8bed225c6a9ff6f506.jpeg" style="width:400px" />
+<img src="https://i.mji.rip/2025/09/14/80aa5205d49a767447f61938f2dada20.jpeg" style="width:400px" />
+<img src="https://i.mji.rip/2025/09/14/9fdf945fb247994518042691f60d7849.jpeg" style="width:400px" />
+<img src="https://i.mji.rip/2025/09/14/dbacc0cf9c8a839f16b8960de1f38f11.jpeg" style="width:400px" />
 
 ## 项目结构
 ```
@@ -139,3 +152,9 @@ danmu_api/
 - cloudflare貌似被哔风控了。
 - 如果想更换兜底第三方弹幕服务器，请添加环境变量`OTHER_SERVER`，示例`https://api.danmu.icu`。
 - 如果想更换vod站点，请添加环境变量`VOD_SERVER`，示例`https://www.caiji.cyou`。
+- 会返回所有跟title匹配的影片，所以主要使用场景是手动弹幕搜索场景。
+- 推荐vercel和claw部署，cloudflare好像不稳定，当然最稳定还是自己本地docker部署最佳。
+
+### 📈项目 Star 数增长趋势
+#### Star History
+[![Star History Chart](https://api.star-history.com/svg?repos=huangxd-/danmu_api&type=Date)](https://www.star-history.com/#huangxd-/danmu_api&Date)
