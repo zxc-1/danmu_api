@@ -74,9 +74,11 @@ test('worker.js API endpoints', async (t) => {
     // mango
     // const keyword = "锦月如歌";
     // bilibili
-    const keyword = "国王排名";
+    // const keyword = "国王排名";
     // youku
     // const keyword = "黑白局";
+
+    const keyword = "地球超新鲜";
 
     const searchUrl = new URL(`${urlPrefix}/${token}/api/v2/search/anime?keyword=${keyword}`);
     const searchRes = await searchAnime(searchUrl);

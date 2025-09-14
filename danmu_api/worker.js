@@ -30,6 +30,15 @@ function resolveOtherServer(env) {
   return DEFAULT_OTHER_SERVER;
 }
 
+const DEFAULT_VOD_SERVER = "https://www.caiji.cyou"; // 默认 vod站点
+let vodServer = DEFAULT_VOD_SERVER;
+
+function resolveVodServer(env) {
+  if (env && env.VOD_SERVER) return env.VOD_SERVER;         // Cloudflare Workers
+  if (typeof process !== "undefined" && process.env?.VOD_SERVER) return process.env.VOD_SERVER; // Vercel / Node
+  return DEFAULT_VOD_SERVER;
+}
+
 // 添加元素到 episodeIds：检查 url 是否存在，若不存在则以自增 id 添加
 function addEpisode(url, title) {
     // 检查是否已存在相同的 url
@@ -347,6 +356,35 @@ async function get360Zongyi(entId, site, year) {
   } catch (error) {
     log("error", `get360Animes error: ${error.message}`);
     throw error;
+  }
+}
+
+// 查询vod站点影片信息
+async function getVodAnimes(title) {
+  try {
+    const response = await httpGet(
+      `${vodServer}/api.php/provide/vod/?ac=detail&wd=${title}&pg=1`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+      }
+    );
+    // 检查 response.data.list 是否存在且长度大于 0
+    if (response && response.data && response.data.list && response.data.list.length > 0) {
+      log("log", `请求 ${vodServer} 成功`);
+      const data = response.data;
+      console.log("vod response: ↓↓↓");
+      printFirst200Chars(data);
+      return data.list;
+    } else {
+      log("log", `请求 ${vodServer} 成功，但 response.data.list 为空`);
+      return [];
+    }
+  } catch (error) {
+    log("error", `请求 ${site} 失败:`, error.message);
+    return [];
   }
 }
 
@@ -1481,27 +1519,89 @@ async function searchAnime(url) {
         }
       }
     } else if (anime.cat_name === "电视剧" || anime.cat_name === "动漫") {
-      for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
-        const item = anime.seriesPlaylinks[i];
-        links.push({"name": i+1, "url": item.url, "title": `【${anime.seriesSite}】${anime.titleTxt}(${anime.year}) ${i+1}`});
+      if (allowedPlatforms.includes(anime.seriesSite)) {
+        for (let i = 0; i < anime.seriesPlaylinks.length; i++) {
+          const item = anime.seriesPlaylinks[i];
+          links.push({"name": i+1, "url": item.url, "title": `【${anime.seriesSite}】${anime.titleTxt}(${anime.year}) ${i + 1}`});
+        }
       }
     } else if (anime.cat_name === "综艺") {
       for (const site of Object.keys(anime.playlinks_year)) {
-        for (const year of anime.playlinks_year[site]) {
-          const subLinks = await get360Zongyi(anime.id, site, year);
-          links = links.concat(subLinks);
+        if (allowedPlatforms.includes(site)) {
+          for (const year of anime.playlinks_year[site]) {
+            const subLinks = await get360Zongyi(anime.id, site, year);
+            links = links.concat(subLinks);
+          }
         }
       }
     }
 
     let transformedAnime = {
       animeId: Number(anime.id), // Mapping animeId to id
-      bangumiId: anime.id, // Mapping bangumiId to id
-      animeTitle: `${anime.titleTxt}(${anime.year})【${anime.cat_name}】`, // Mapping animeTitle to titleTxt
+      bangumiId: String(anime.id), // Mapping bangumiId to id
+      animeTitle: `${anime.titleTxt}(${anime.year})【${anime.cat_name}】from 360`, // Mapping animeTitle to titleTxt
       type: anime.cat_name, // Mapping type to cat_name
       typeDescription: anime.cat_name, // Mapping typeDescription to cat_name
       imageUrl: anime.cover, // Mapping imageUrl to cover
-      startDate: `${anime.year}-01-01T00:00:00.000Z`, // Start date to the year field in ISO format
+      startDate: `${anime.year}-01-01T00:00:00`, // Start date to the year field in ISO format
+      episodeCount: links.length, // Mapping episodeCount to length of seriesPlaylinks
+      rating: 0, // Default rating as 0
+      isFavorited: true, // Assuming all anime are favorited by default
+    };
+
+    curAnimes.push(transformedAnime);
+    // Check if the anime already exists in the animes array
+    const exists = animes.some(existingAnime => existingAnime.animeId === transformedAnime.animeId);
+    if (!exists) {
+      const transformedAnimeCopy = { ...transformedAnime, links: links };
+      addAnime(transformedAnimeCopy);
+    }
+    if (animes.length > MAX_ANIMES) {
+      removeEarliestAnime();
+    }
+  }
+
+  // 查询vod
+  const animesVod = await getVodAnimes(queryTitle);
+  for (const anime of animesVod) {
+    let vodPlayFromList = anime.vod_play_from.split("$$$")
+    vodPlayFromList = vodPlayFromList.map(item => {
+      if (item === "mgtv") {
+        return "imgo"; // 将mgtv替换为imgo
+      } else if (item === "bilibili") {
+        return "bilibili1"; // 将bilibili替换为bilibili1
+      } else {
+        return item; // 其他情况保持原值
+      }
+    });
+
+    const vodPlayUrlList = anime.vod_play_url.split("$$$")
+
+    // 过滤出在allowedPlatforms中的元素，并保持它们在vodPlayFromList中的原始索引
+    const validIndices = vodPlayFromList
+        .map((item, index) => allowedPlatforms.includes(item) ? index : -1)
+        .filter(index => index !== -1);
+
+    let links = [];
+    let count = 0;
+    for (const num of validIndices) {
+      const platform = vodPlayFromList[num];
+      const eps = vodPlayUrlList[num].split("#");
+      for (const ep of eps) {
+        const epInfo = ep.split("$");
+        count = count + 1;
+        links.push({"name": count, "url": epInfo[1], "title": `【${platform}】${anime.vod_name}(${anime.vod_year}) ${epInfo[0]}`});
+      }
+    }
+
+    let transformedAnime = {
+      animeId: Number(anime.vod_id), // Mapping animeId to id
+      bangumiId: String(anime.vod_id), // Mapping bangumiId to id
+      animeTitle: `${anime.vod_name}(${anime.vod_year})【${anime.type_name}】from vod`, // Mapping animeTitle to titleTxt
+      type: anime.type_name, // Mapping type to cat_name
+      typeDescription: anime.type_name, // Mapping typeDescription to cat_name
+      imageUrl: anime.vod_pic, // Mapping imageUrl to cover
+      startDate: `${anime.vod_year}-01-01T00:00:00`, // Start date to the year field in ISO format
       episodeCount: links.length, // Mapping episodeCount to length of seriesPlaylinks
       rating: 0, // Default rating as 0
       isFavorited: true, // Assuming all anime are favorited by default
@@ -1626,6 +1726,7 @@ async function getComment(path) {
 async function handleRequest(req, env) {
   token = resolveToken(env);  // 每次请求动态获取，确保热更新环境变量后也能生效
   otherServer = resolveOtherServer(env);
+  vodServer = resolveVodServer(env);
 
   const url = new URL(req.url);
   let path = url.pathname;
