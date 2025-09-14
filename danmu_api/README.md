@@ -132,6 +132,5 @@ danmu_api/
 - 确保 `package.json` 中包含 `node-fetch` 依赖。
 - 一键部署需要将项目推送到公开的 Git 仓库（如 GitHub），并更新按钮中的仓库地址。
 - 运行 Docker 容器时，需通过 `-e TOKEN=your_token_here` 传递 `TOKEN` 环境变量。
-
-## 许可证
-MIT
+- cloudflare貌似被哔风控了
+- 如果想更换兜底第三方弹幕服务器，请添加环境变量OTHER_SERVER

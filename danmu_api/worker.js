@@ -21,6 +21,15 @@ function resolveToken(env) {
   return DEFAULT_TOKEN;
 }
 
+const DEFAULT_OTHER_SERVER = "https://api.danmu.icu"; // 默认 第三方弹幕服务器
+let otherServer = DEFAULT_OTHER_SERVER;
+
+function resolveOtherServer(env) {
+  if (env && env.OTHER_SERVER) return env.OTHER_SERVER;         // Cloudflare Workers
+  if (typeof process !== "undefined" && process.env?.OTHER_SERVER) return process.env.OTHER_SERVER; // Vercel / Node
+  return DEFAULT_OTHER_SERVER;
+}
+
 // 添加元素到 episodeIds：检查 url 是否存在，若不存在则以自增 id 添加
 function addEpisode(url, title) {
     // 检查是否已存在相同的 url
@@ -362,26 +371,67 @@ function printFirst200Chars(data) {
   log("log", dataToPrint.slice(0, 200));  // 打印前200个字符
 }
 
-function convertToDanmakuXML(contents) {
-  let danmus = []
-  for (const content of contents) {
-    const attributes = [
-      content.timepoint,
-      content.ct,
-      content.size,
-      content.color,
-      content.unixtime,
-      '0',
-      content.uid,
-      '26732601000067074',
-      '1'
-    ].join(',');
-    danmus.push({
-      p: attributes,
-      m: content.content
-    });
+function convertToDanmakuJson(contents, platform) {
+  let danmus = [];
+  let cidCounter = 1;
+
+  // 统一处理输入为数组
+  let items = [];
+  if (typeof contents === "string") {
+    // 处理 XML 字符串
+    items = [...contents.matchAll(/<d p="([^"]+)">([^<]+)<\/d>/g)].map(match => ({
+      p: match[1],
+      m: match[2]
+    }));
+  } else if (contents && Array.isArray(contents.danmuku)) {
+    // 处理 danmuku 数组，映射为对象格式
+    const typeMap = { right: 1, top: 4, bottom: 5 };
+    const hexToDecimal = (hex) => (hex ? parseInt(hex.replace("#", ""), 16) : 16777215);
+    items = contents.danmuku.map(item => ({
+      timepoint: item[0],
+      ct: typeMap[item[1]] !== undefined ? typeMap[item[1]] : 1,
+      color: hexToDecimal(item[2]),
+      content: item[4]
+    }));
+  } else if (Array.isArray(contents)) {
+    // 处理标准对象数组
+    items = contents;
   }
+
+  if (!items.length) {
+    throw new Error("无效输入，需为 XML 字符串或弹幕数组");
+  }
+
+  for (const item of items) {
+    let attributes, m;
+
+    if ("timepoint" in item) {
+      // 处理对象数组输入
+      attributes = [
+        parseFloat(item.timepoint).toFixed(2),
+        item.ct || 0,
+        item.color || 16777215,
+        `[${platform}]`
+      ].join(",");
+      m = item.content;
+    } else {
+      // 处理 XML 解析后的格式
+      const pValues = item.p.split(",");
+      attributes = [
+        parseFloat(pValues[0]).toFixed(2),
+        pValues[1] || 0,
+        pValues[3] || 16777215,
+        `[${platform}]`
+      ].join(",");
+      m = item.m;
+    }
+
+    danmus.push({ p: attributes, m, cid: cidCounter++ });
+  }
+
   log("log", "danmus:", danmus.length);
+  // 输出前五条弹幕
+  log("log", "Top 5 danmus:", JSON.stringify(danmus.slice(0, 5), null, 2));
   return danmus;
 }
 
@@ -631,7 +681,7 @@ async function fetchTencentVideo(inputUrl) {
     });
   } catch (error) {
     log("error", "请求页面失败:", error);
-    return null;
+    return [];
   }
 
   // 使用正则表达式提取 <title> 标签内容
@@ -649,10 +699,10 @@ async function fetchTencentVideo(inputUrl) {
     });
   } catch (error) {
     if (error.response?.status === 404) {
-      return null;
+      return [];
     }
     log("error", "请求弹幕基础数据失败:", error);
-    return null;
+    return [];
   }
 
   // 先把 res.data 转成 JSON
@@ -704,13 +754,13 @@ async function fetchTencentVideo(inputUrl) {
     }
   } catch (error) {
     log("error", "解析弹幕数据失败:", error);
-    return null;
+    return [];
   }
 
   printFirst200Chars(contents);
 
   // 返回结果
-  return convertToDanmakuXML(contents);
+  return convertToDanmakuJson(contents, "tecent");
 }
 
 // =====================
@@ -731,7 +781,7 @@ async function fetchIqiyi(inputUrl) {
     const idMatch = inputUrl.match(/v_(\w+)/);
     if (!idMatch) {
       log("error", "无法从 URL 中提取 tvid");
-      return null;
+      return [];
     }
     tvid = idMatch[1];
     log("log", "tvid:", tvid);
@@ -749,7 +799,7 @@ async function fetchIqiyi(inputUrl) {
     log("log", "解码后 tvid:", tvid);
   } catch (error) {
     log("error", "请求解码信息失败:", error);
-    return null;
+    return [];
   }
 
   // 获取视频基础信息
@@ -771,7 +821,7 @@ async function fetchIqiyi(inputUrl) {
     log("log", "标题:", title, "时长:", duration);
   } catch (error) {
     log("error", "请求视频基础信息失败:", error);
-    return null;
+    return [];
   }
 
   // 计算弹幕分段数量（每5分钟一个分段）
@@ -848,13 +898,13 @@ async function fetchIqiyi(inputUrl) {
     }
   } catch (error) {
       log("error", "解析弹幕数据失败:", error);
-      return null;
+      return [];
   }
 
   printFirst200Chars(contents);
 
   // 返回结果
-  return convertToDanmakuXML(contents);
+  return convertToDanmakuJson(contents, "iqiyi");
 }
 
 // =====================
@@ -879,7 +929,7 @@ async function fetchMangoTV(inputUrl) {
     log("log", path);
   } else {
     log("error", 'Invalid URL');
-    return null;
+    return [];
   }
   const cid = path[path.length - 2];
   const vid = path[path.length - 1].split(".")[0];
@@ -898,7 +948,7 @@ async function fetchMangoTV(inputUrl) {
     });
   } catch (error) {
     log("log", "请求视频信息失败:", error);
-    return null;
+    return [];
   }
 
   const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
@@ -953,13 +1003,13 @@ async function fetchMangoTV(inputUrl) {
     }
   } catch (error) {
     log("error", "解析弹幕数据失败:", error);
-    return null;
+    return [];
   }
 
   printFirst200Chars(contents);
 
   // 返回结果
-  return convertToDanmakuXML(contents);
+  return convertToDanmakuJson(contents, "mango");
 }
 
 // =====================
@@ -985,7 +1035,7 @@ async function fetchBilibili(inputUrl) {
     log("log", path);
   } else {
     log("error", 'Invalid URL');
-    return null;
+    return [];
   }
 
   let title, danmakuUrl;
@@ -1026,14 +1076,14 @@ async function fetchBilibili(inputUrl) {
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       if (data.code !== 0) {
         log("error", "获取普通投稿视频信息失败:", data.message);
-        return null;
+        return [];
       }
 
       const cid = data.data.pages[p - 1].cid;
       danmakuUrl = `https://comment.bilibili.com/${cid}.xml`;
     } catch (error) {
       log("error", "请求普通投稿视频信息失败:", error);
-      return null;
+      return [];
     }
 
   // 番剧
@@ -1052,7 +1102,7 @@ async function fetchBilibili(inputUrl) {
       const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
       if (data.code !== 0) {
         log("error", "获取番剧视频信息失败:", data.message);
-        return null;
+        return [];
       }
 
       for (const episode of data.result.episodes) {
@@ -1066,17 +1116,17 @@ async function fetchBilibili(inputUrl) {
 
       if (!danmakuUrl) {
         log("error", "未找到匹配的番剧集信息");
-        return null;
+        return [];
       }
 
     } catch (error) {
       log("error", "请求番剧视频信息失败:", error);
-      return null;
+      return [];
     }
 
   } else {
     log("error", "不支持的B站视频网址，仅支持普通视频(av,bv)、剧集视频(ep)");
-    return null;
+    return [];
   }
 
   const response = await httpGet(danmakuUrl, {
@@ -1089,7 +1139,7 @@ async function fetchBilibili(inputUrl) {
   const contents = response.data;
   printFirst200Chars(contents);
 
-  return contents;
+  return convertToDanmakuJson(contents, "bilibili");
 }
 
 // =====================
@@ -1111,6 +1161,10 @@ function convertYoukuUrl(url) {
 async function fetchYouku(inputUrl) {
   log("log", "开始从本地请求优酷弹幕...", inputUrl);
 
+  if (!inputUrl) {
+    return [];
+  }
+
   // 弹幕和视频信息 API 基础地址
   const api_video_info = "https://openapi.youku.com/v2/videos/show.json";
   const api_danmaku = "https://acs.youku.com/h5/mopen.youku.danmu.list/1.0/";
@@ -1126,7 +1180,7 @@ async function fetchYouku(inputUrl) {
     log("log", path);
   } else {
     log("error", 'Invalid URL');
-    return null;
+    return [];
   }
   const video_id = path[path.length - 1].split(".")[0].slice(3);
 
@@ -1145,7 +1199,7 @@ async function fetchYouku(inputUrl) {
     });
   } catch (error) {
     log("error", "请求视频信息失败:", error);
-    return null;
+    return [];
   }
 
   const data = typeof res.data === "string" ? JSON.parse(res.data) : res.data;
@@ -1201,7 +1255,7 @@ async function fetchYouku(inputUrl) {
     log("log", "_m_h5_tk:", _m_h5_tk);
   } catch (error) {
     log("error", "获取 cna 或 tk_enc 失败:", error);
-    return null;
+    return [];
   }
 
   // 计算弹幕分段请求
@@ -1223,9 +1277,6 @@ async function fetchYouku(inputUrl) {
     };
 
     const str = JSON.stringify(msg);
-    // const buff = Buffer.from(str, "utf-8");
-    // const msg_b64encode = buff.toString("base64");
-    // msg.msg = msg_b64encode;
 
     // 2. 处理 UTF-8 编码（替代 TextEncoder 和 Buffer）
     // 对于简单的 ASCII 字符串，btoa 可以直接处理
@@ -1334,14 +1385,40 @@ async function fetchYouku(inputUrl) {
         }
     } catch (error) {
         log("error", "请求失败:", error.message); // 输出错误信息
-        return null;
+        return [];
     }
   }
 
   printFirst200Chars(contents);
 
   // 返回结果
-  return convertToDanmakuXML(contents);
+  return convertToDanmakuJson(contents, "youku");
+}
+
+// =====================
+// 获取第三方弹幕服务器弹幕
+// =====================
+
+async function fetchOtherServer(inputUrl) {
+  try {
+    const response = await httpGet(
+      `${otherServer}/?url=${inputUrl}&ac=dm`,
+      {
+        headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        },
+      }
+    );
+
+    log("log", `danmu response from ${otherServer}: ↓↓↓`);
+    printFirst200Chars(response.data);
+
+    return convertToDanmakuJson(response.data, "other_server");
+  } catch (error) {
+    log("error", `请求 ${otherServer} 失败:`, error);
+    return [];
+  }
 }
 
 // =====================
@@ -1418,7 +1495,7 @@ async function searchAnime(url) {
     }
 
     let transformedAnime = {
-      animeId: anime.id, // Mapping animeId to id
+      animeId: Number(anime.id), // Mapping animeId to id
       bangumiId: anime.id, // Mapping bangumiId to id
       animeTitle: `${anime.titleTxt}(${anime.year})【${anime.cat_name}】`, // Mapping animeTitle to titleTxt
       type: anime.cat_name, // Mapping type to cat_name
@@ -1514,6 +1591,12 @@ async function getComment(path) {
   }
   log("log", `Fetched comment ID: ${commentId}`);
 
+  // 处理302场景
+  // https://v.youku.com/video?vid=XNjQ4MTIwOTE2NA==&tpa=dW5pb25faWQ9MTAyMjEzXzEwMDAwNl8wMV8wMQ需要转成https://v.youku.com/v_show/id_XNjQ4MTIwOTE2NA==.html
+  if (url.includes("youku.com/video?vid")) {
+      url = convertYoukuUrl(url);
+  }
+
   log("log", "开始从本地请求弹幕...", url);
   let danmus = [];
   if (url.includes('.qq.com')) {
@@ -1527,22 +1610,22 @@ async function getComment(path) {
   }
   if (url.includes('.bilibili.com')) {
       danmus = await fetchBilibili(url);
-      // bilibili直接返回xml
-      return xmlResponse(danmus);
   }
   if (url.includes('.youku.com')) {
-      // 处理302场景
-      // https://v.youku.com/video?vid=XNjQ4MTIwOTE2NA==&tpa=dW5pb25faWQ9MTAyMjEzXzEwMDAwNl8wMV8wMQ需要转成https://v.youku.com/v_show/id_XNjQ4MTIwOTE2NA==.html
-      if (url.includes("youku.com/video?vid")) {
-          url = convertYoukuUrl(url);
-      }
       danmus = await fetchYouku(url);
   }
+
+  // 如果弹幕为空，则请求第三方弹幕服务器作为兜底
+  if (danmus.length === 0) {
+    danmus = await fetchOtherServer(url);
+  }
+
   return jsonResponse({ count: danmus.length, comments: danmus });
 }
 
 async function handleRequest(req, env) {
   token = resolveToken(env);  // 每次请求动态获取，确保热更新环境变量后也能生效
+  otherServer = resolveOtherServer(env);
 
   const url = new URL(req.url);
   let path = url.pathname;
@@ -1632,4 +1715,5 @@ export async function vercelHandler(req, res) {
 }
 
 // 为了测试导出 handleRequest
-export { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV, fetchBilibili, fetchYouku };
+export { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
+  fetchBilibili, fetchYouku, fetchOtherServer };

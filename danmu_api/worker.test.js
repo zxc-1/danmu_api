@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert').strict;
-const { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV, fetchBilibili, fetchYouku} = require('./worker');
+const { handleRequest, searchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
+  fetchBilibili, fetchYouku, fetchOtherServer} = require('./worker');
 
 // Mock Request class for testing
 class MockRequest {
@@ -60,6 +61,11 @@ test('worker.js API endpoints', async (t) => {
   //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
   // });
 
+  // await t.test('GET other_server danmu', async () => {
+  //   const res = await fetchOtherServer("https://www.bilibili.com/bangumi/play/ep1231564");
+  //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
+  // });
+
   await t.test('GET realistic danmu', async () => {
     // tencent
     // const keyword = "子夜归";
@@ -68,7 +74,7 @@ test('worker.js API endpoints', async (t) => {
     // mango
     // const keyword = "锦月如歌";
     // bilibili
-    // const keyword = "国王排名";
+    const keyword = "国王排名";
     // youku
     // const keyword = "黑白局";
 
@@ -84,34 +90,7 @@ test('worker.js API endpoints', async (t) => {
 
     const commentUrl = new URL(`${urlPrefix}/${token}/api/v2/comment/${bangumiData.bangumi.episodes[0].episodeId}?withRelated=true&chConvert=1`);
     const commentRes = await getComment(commentUrl.pathname);
-
-    // 先读取 body 为文本（只一次，确保兼容）
-    let responseText;
-    if (typeof commentRes?.text === 'function') {
-      // commentRes 是 Response 对象
-      responseText = await commentRes.text();
-    } else if (typeof commentRes === 'string') {
-      // 已解析的字符串（上游处理）
-      responseText = commentRes;
-    } else {
-      throw new Error(`Unexpected commentRes type: ${typeof commentRes}`);
-    }
-
-    try {
-      // 尝试解析为 JSON
-      const commentData = JSON.parse(responseText);
-      assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
-    } catch (e) {
-      if (e instanceof SyntaxError) {
-        // JSON 解析失败，检查 XML
-        console.log('Response preview:', responseText.substring(0, 200));
-
-        assert(typeof responseText === 'string' && responseText.trim().startsWith('<?xml version'),
-               `Expected response to start with '<?xml version', but got: ${responseText.substring(0, 200)}`);
-      } else {
-        // 其他错误继续抛出
-        throw e;
-      }
-    }
+    const commentData = await commentRes.json();
+    assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
   });
 });
