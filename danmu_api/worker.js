@@ -2697,7 +2697,7 @@ async function handleRequest(req, env) {
     return searchAnime(url);
   }
 
-  // GET /api/v2/search/anime
+  // GET /api/v2/match
   if (path === "/api/v2/match" && method === "POST") {
     return matchAnime(url, req);
   }

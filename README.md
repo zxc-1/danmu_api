@@ -9,6 +9,7 @@
 ## 功能
 - **API 接口**：
   - `GET /api/v2/search/anime?keyword=${queryTitle}`：根据关键字搜索动漫。
+  - `POST /api/v2/match`：根据关键字匹配动漫，用于自动匹配。
   - `GET /api/v2/bangumi/:animeId`：获取指定动漫的详细信息。
   - `GET /api/v2/comment/:commentId?withRelated=true&chConvert=1`：获取指定弹幕评论，支持返回相关评论和字符转换。
   - `GET /api/logs`：获取最近的日志（最多 500 行，格式为 `[时间戳] 级别: 消息`）。
@@ -49,6 +50,7 @@
    使用 Postman 或 curl 测试：
    - `GET http://{ip}:9321/87654321`
    - `GET http://{ip}:9321/87654321/api/v2/search/anime?keyword=Anime%20A`
+   - `POST http://{ip}:9321/87654321/api/v2/api/v2/match`
    - `GET http://{ip}:9321/87654321/api/v2/bangumi/1`
    - `GET http://{ip}:9321/87654321/api/v2/comment/1?withRelated=true&chConvert=1`
    - `GET http://{ip}:9321/87654321/api/logs`
