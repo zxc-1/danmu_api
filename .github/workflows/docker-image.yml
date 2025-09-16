@@ -10,6 +10,8 @@ on:
 
 jobs:
   build:
+    # 👇 关键：只有在上游仓库才运行，你的 fork 不会触发
+    if: github.repository == 'huangxd-/danmu_api'
     runs-on: ubuntu-latest
 
     steps:
