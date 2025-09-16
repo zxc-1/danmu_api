@@ -1,36 +1,48 @@
-name: Sync with upstream
+name: Sync upstream
 
 on:
-  schedule:
-    - cron: '0 2 * * *'  # 每天凌晨 2 点自动执行（UTC 时间）
-  workflow_dispatch:      # 支持手动运行
+  workflow_dispatch:   # 手动触发
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
         with:
-          persist-credentials: false
+          fetch-depth: 0
 
-      - name: Set up Git
+      - name: Setup git
         run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream
+      - name: Fetch upstream
         run: |
           git remote add upstream https://github.com/huangxd-/danmu_api.git
           git fetch upstream
 
-      - name: Merge upstream changes
+      - name: Try merge
+        id: merge
         run: |
-          git checkout main
-          git merge upstream/main --allow-unrelated-histories -m "chore: sync upstream"
+          echo "🔄 正在尝试合并上游更新..."
+          if git merge upstream/main --no-edit; then
+            echo "merge_result=success" >> $GITHUB_ENV
+          else
+            echo "merge_result=conflict" >> $GITHUB_ENV
+          fi
 
-      - name: Push changes
+      - name: Push if success
+        if: env.merge_result == 'success'
         run: |
+          echo "✅ 同步成功，正在推送..."
           git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR if conflict
+        if: env.merge_result == 'conflict'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: sync upstream (conflicts need resolution)"
+          title: "⚠️ Sync upstream - conflicts detected"
+          body: "GitHub Actions 自动同步时发现冲突，请手动解决。"
+          branch: sync-upstream
