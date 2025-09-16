@@ -2,36 +2,35 @@ name: Sync with upstream
 
 on:
   schedule:
-    - cron: "0 2 * * *"   # 每天凌晨 2 点自动同步，你可以改时间
-  workflow_dispatch:     # 可以手动触发
+    - cron: '0 2 * * *'  # 每天凌晨 2 点自动执行（UTC 时间）
+  workflow_dispatch:      # 支持手动运行
 
 jobs:
   sync:
-    # 👇 关键：只在你自己的仓库运行
-    if: github.repository == 'zxc-1/danmu_api'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout this repo
-        uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Configure Git
+      - name: Set up Git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream remote
+      - name: Add upstream
         run: |
-          git remote add upstream https://github.com/huangxd-/danmu_api.git || true
+          git remote add upstream https://github.com/huangxd-/danmu_api.git
           git fetch upstream
 
-      - name: Merge upstream/main into local main, favoring our changes on conflict
+      - name: Merge upstream changes
         run: |
           git checkout main
-          git merge upstream/main -X ours --no-edit
+          git merge upstream/main --allow-unrelated-histories -m "chore: sync upstream"
 
-      - name: Push merged code back to origin
+      - name: Push changes
         run: |
           git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
