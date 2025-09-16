@@ -7,6 +7,8 @@ on:
 
 jobs:
   sync:
+    # 👇 关键：只在你自己的仓库运行
+    if: github.repository == 'zxc-1/danmu_api'
     runs-on: ubuntu-latest
 
     steps:
