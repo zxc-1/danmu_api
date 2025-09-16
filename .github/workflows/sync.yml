@@ -18,7 +18,7 @@ jobs:
 
       - name: Fetch upstream
         run: |
-          git remote add upstream https://github.com/huangxd-/danmu_api.git
+          git remote add upstream https://github.com/huangxd-/danmu_api.git || true
           git fetch upstream
 
       - name: Try merge
