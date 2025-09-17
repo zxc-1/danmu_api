@@ -131,6 +131,10 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 > 注意：部署时请在环境变量配置区域填写你的TOKEN值，该变量将用于API服务的身份验证相关功能
 > 
 > 示例请求：`https://{your_domian}/{TOKEN}/api/v2/search/anime?keyword=子夜归`确认是否部署成功
+>
+> 部署的时候项目加速区域最好设置为"全球可用区（不含中国大陆）"，不然不绑定自定义域名貌似只能生成3小时的预览链接？https://edgeone.cloud.tencent.com/pages/document/175191784523485184
+> 
+<img src="https://i.mji.rip/2025/09/17/3a675876dabb92e4ce45c10d543ce66b.png" style="width:400px" />
 
 ## 部署到 Cloudflare
 
