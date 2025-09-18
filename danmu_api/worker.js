@@ -2647,7 +2647,7 @@ async function searchEpisodes(url) {
   }
 
   // 先搜索动漫
-  let searchUrl = new URL(url.href.replace("/search/episodes", `/search/anime?keyword=${anime}`));
+  let searchUrl = new URL(`/search/anime?keyword=${anime}`, url.origin);
   const searchRes = await searchAnime(searchUrl);
   const searchData = await searchRes.json();
   
@@ -2666,7 +2666,7 @@ async function searchEpisodes(url) {
 
   // 遍历所有找到的动漫，获取它们的集数信息
   for (const animeItem of searchData.animes) {
-    const bangumiUrl = new URL(url.href.replace("/search/episodes", `/bangumi/${animeItem.bangumiId}`));
+    const bangumiUrl = new URL(`/bangumi/${animeItem.bangumiId}`, url.origin);
     const bangumiRes = await getBangumi(bangumiUrl.pathname);
     const bangumiData = await bangumiRes.json();
     
