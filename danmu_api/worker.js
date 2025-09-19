@@ -320,7 +320,7 @@ async function get360Animes(title) {
     return animes;
   } catch (error) {
     log("error", `get360Animes error: ${error.message}`);
-    throw error;
+    return [];
   }
 }
 
@@ -355,7 +355,7 @@ async function get360Zongyi(entId, site, year) {
     return links;
   } catch (error) {
     log("error", `get360Animes error: ${error.message}`);
-    throw error;
+    return [];
   }
 }
 
@@ -2938,5 +2938,5 @@ export async function vercelHandler(req, res) {
 }
 
 // 为了测试导出 handleRequest
-export { handleRequest, searchAnime, searchEpisodes, matchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
-  fetchBilibili, fetchYouku, fetchOtherServer, httpGet, httpPost };
+export { handleRequest, searchAnime, searchEpisodes, matchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi,
+  fetchMangoTV, fetchBilibili, fetchYouku, fetchOtherServer, httpGet, httpPost };
