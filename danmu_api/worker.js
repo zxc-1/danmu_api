@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.0.2";
+const VERSION = "1.0.3";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -2631,6 +2631,95 @@ async function matchAnime(url, req) {
   }
 }
 
+// Extracted function for GET /api/v2/search/episodes
+async function searchEpisodes(url) {
+  const anime = url.searchParams.get("anime");
+  const episode = url.searchParams.get("episode") || "";
+  
+  log("log", `Search episodes with anime: ${anime}, episode: ${episode}`);
+
+  if (!anime) {
+    log("error", "Missing anime parameter");
+    return jsonResponse(
+      { errorCode: 400, success: false, errorMessage: "Missing anime parameter" },
+      400
+    );
+  }
+
+  // 先搜索动漫
+  let searchUrl = new URL(`/search/anime?keyword=${anime}`, url.origin);
+  const searchRes = await searchAnime(searchUrl);
+  const searchData = await searchRes.json();
+  
+  if (!searchData.success || !searchData.animes || searchData.animes.length === 0) {
+    log("log", "No anime found for the given title");
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      hasMore: false,
+      animes: []
+    });
+  }
+
+  let resultAnimes = [];
+
+  // 遍历所有找到的动漫，获取它们的集数信息
+  for (const animeItem of searchData.animes) {
+    const bangumiUrl = new URL(`/bangumi/${animeItem.bangumiId}`, url.origin);
+    const bangumiRes = await getBangumi(bangumiUrl.pathname);
+    const bangumiData = await bangumiRes.json();
+    
+    if (bangumiData.success && bangumiData.bangumi && bangumiData.bangumi.episodes) {
+      let filteredEpisodes = bangumiData.bangumi.episodes;
+
+      // 根据 episode 参数过滤集数
+      if (episode) {
+        if (episode === "movie") {
+          // 仅保留剧场版结果
+          filteredEpisodes = bangumiData.bangumi.episodes.filter(ep => 
+            animeItem.typeDescription && (
+              animeItem.typeDescription.includes("电影") || 
+              animeItem.typeDescription.includes("剧场版") ||
+              ep.episodeTitle.toLowerCase().includes("movie") ||
+              ep.episodeTitle.includes("剧场版")
+            )
+          );
+        } else if (/^\d+$/.test(episode)) {
+          // 纯数字，仅保留指定集数
+          const targetEpisode = parseInt(episode);
+          filteredEpisodes = bangumiData.bangumi.episodes.filter(ep => 
+            parseInt(ep.episodeNumber) === targetEpisode
+          );
+        }
+      }
+
+      // 只有当过滤后还有集数时才添加到结果中
+      if (filteredEpisodes.length > 0) {
+        resultAnimes.push({
+          animeId: animeItem.animeId,
+          animeTitle: animeItem.animeTitle,
+          type: animeItem.type,
+          typeDescription: animeItem.typeDescription,
+          episodes: filteredEpisodes.map(ep => ({
+            episodeId: ep.episodeId,
+            episodeTitle: ep.episodeTitle
+          }))
+        });
+      }
+    }
+  }
+
+  log("log", `Found ${resultAnimes.length} animes with filtered episodes`);
+
+  return jsonResponse({
+    errorCode: 0,
+    success: true,
+    errorMessage: "",
+    animes: resultAnimes
+  });
+}
+
 // Extracted function for GET /api/v2/bangumi/:animeId
 async function getBangumi(path) {
   const animeId = parseInt(path.split("/").pop());
@@ -2774,7 +2863,7 @@ async function handleRequest(req, env) {
   // 移除 token 部分，剩下的才是真正的路径
   path = "/" + parts.slice(1).join("/");
 
-  console.log(path);
+  log("log", path);
 
   // GET /
   if (path === "/" && method === "GET") {
@@ -2784,6 +2873,11 @@ async function handleRequest(req, env) {
   // GET /api/v2/search/anime
   if (path === "/api/v2/search/anime" && method === "GET") {
     return searchAnime(url);
+  }
+
+  // GET /api/v2/search/episodes
+  if (path === "/api/v2/search/episodes" && method === "GET") {
+    return searchEpisodes(url);
   }
 
   // GET /api/v2/match
@@ -2815,6 +2909,8 @@ async function handleRequest(req, env) {
   return jsonResponse({ message: "Not found" }, 404);
 }
 
+
+
 // --- Cloudflare Workers 入口 ---
 export default {
   async fetch(request, env, ctx) {
@@ -2842,5 +2938,5 @@ export async function vercelHandler(req, res) {
 }
 
 // 为了测试导出 handleRequest
-export { handleRequest, searchAnime, matchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
+export { handleRequest, searchAnime, searchEpisodes, matchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
   fetchBilibili, fetchYouku, fetchOtherServer, httpGet, httpPost };
