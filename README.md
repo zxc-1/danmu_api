@@ -1,7 +1,7 @@
 # LogVar 弹幕 API 服务器
 
 [![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github)](https://github.com/huangxd-/damnu_api)
-![GitHub License](https://img.shields.io/github/license/huangxd-/damnu_api)
+![GitHub License](https://img.shields.io/github/license/huangxd-/danmu_api)
 ![Docker Pulls](https://img.shields.io/docker/pulls/logvar/danmu-api)
 [![telegram](https://img.shields.io/static/v1?label=telegram&message=telegram_channel&color=blue)](https://t.me/logvar_danmu_channel)
 [![telegram](https://img.shields.io/static/v1?label=telegram&message=telegram_group&color=blue)](https://t.me/logvar_danmu_group)
@@ -10,9 +10,9 @@
 
 本项目仅为个人爱好开发，代码开源。如有任何侵权行为，请联系本人删除。
 
-有问题提issue或私信机器人都ok。https://t.me/ddjdd_bot
+有问题提issue或 [私信机器人](https://t.me/ddjdd_bot) 都ok。
 
-新加了tg频道 (https://t.me/logvar_danmu_channel) ，方便发送更新通知，以及群组，太多人私信咨询了，索性增加一个互助群 (https://t.me/logvar_danmu_group) ，大家有问题可以在群里求助。请点击上面蓝色的按钮进行添加关注。
+新加了 [tg频道](https://t.me/logvar_danmu_channel) ，方便发送更新通知，以及群组，太多人私信咨询了，索性增加一个 [互助群](https://t.me/logvar_danmu_group) ，大家有问题可以在群里求助。
 
 ## 功能
 - **API 接口**：
@@ -135,6 +135,8 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 > 示例请求：`https://{your_domian}/{TOKEN}/api/v2/search/anime?keyword=子夜归`确认是否部署成功
 >
 > 部署的时候项目加速区域最好设置为"全球可用区（不含中国大陆）"，不然不绑定自定义域名貌似只能生成3小时的预览链接？https://edgeone.cloud.tencent.com/pages/document/175191784523485184
+> 
+> 也可直接用国际站的部署按钮一键部署，默认选择"全球可用区（不含中国大陆）" [![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?template=https://github.com/huangxd-/danmu_api&project-name=danmu-api&root-directory=.%2F&env=TOKEN)
 > 
 <img src="https://i.mji.rip/2025/09/17/3a675876dabb92e4ce45c10d543ce66b.png" style="width:400px" />
 
