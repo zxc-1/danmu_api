@@ -3,7 +3,7 @@ name: Sync upstream
 on:
   workflow_dispatch:   # 手动触发
   schedule:            # ✅ 新增定时任务
-    - cron: '0 2 * * *'  # 每天北京时间凌晨 2:00
+    - cron: '0 19 * * *'  # 每天北京时间凌晨 2:00
 
 jobs:
   sync:
