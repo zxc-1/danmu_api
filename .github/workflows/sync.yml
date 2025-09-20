@@ -6,6 +6,14 @@ on:
     - cron: "0 19 * * *"   # 每天 UTC 19:00（北京+8为次日03:00）
 
 permissions:
+  name: Sync upstream
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 19 * * *'  # 每天 UTC 19:00（北京+8为次日03:00）
+
+permissions:
   contents: write
   pull-requests: write
 
@@ -17,7 +25,49 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Clean working tree
+      - name: Setup git
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch upstream
+        run: |
+          git remote remove upstream || true
+          git remote add upstream https://github.com/huangxd-/danmu_api.git
+          git fetch upstream --prune
+
+      # ⚡ 关键：直接尝试 merge，如果失败就留在冲突状态
+      - name: Merge upstream into main
+        id: merge
+        run: |
+          git checkout main
+          git pull --ff-only origin main
+          if git merge --no-edit upstream/main; then
+            echo "merge_result=success" >> $GITHUB_ENV
+          else
+            echo "merge_result=conflict" >> $GITHUB_ENV
+          fi
+
+      # ✅ 无冲突直接推送
+      - name: Push if success
+        if: env.merge_result == 'success'
+        run: |
+          echo "✅ No conflicts, pushing to origin/main"
+          git push origin main
+
+      # ⚠️ 有冲突就创建 PR，让人手动解决
+      - name: Create PR if conflict
+        if: env.merge_result == 'conflict'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          base: main
+          branch: sync-upstream
+          commit-message: "chore: sync upstream (conflicts need resolution)"
+          title: "⚠️ Sync upstream - conflicts detected"
+          body: |
+            GitHub Actions 自动同步上游失败，存在冲突。
+            请在此 PR 中手动解决后合并。
+          delete-branch: false
         run: |
           echo "======================"
           echo "🧹  CLEAN WORKING TREE"
