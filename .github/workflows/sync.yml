@@ -1,50 +1,78 @@
 name: Sync upstream
 
 on:
-  workflow_dispatch:   # 手动触发
-  schedule:            # ✅ 新增定时任务
-    - cron: '0 19 * * *'  # 每天北京时间凌晨 2:00
+  workflow_dispatch:
+  schedule:
+    - cron: '0 19 * * *'  # 每天北京时间 03:00（UTC 19:00）
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup git
+      - name: Setup git identity
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch upstream
+      - name: Add & fetch upstream
         run: |
           git remote add upstream https://github.com/huangxd-/danmu_api.git || true
-          git fetch upstream
+          git fetch upstream --prune
 
-      - name: Try merge
-        id: merge
+      # ✅ 关键：不要把 upstream 直接 merge 到 main（这一步最容易留下冲突）
+      # 我们改为：创建一支同步分支，把 upstream/main 的内容“变更”放到当前仓库，
+      # 把所有文件变更留给 create-pull-request 去提交和发 PR。
+      - name: Prepare sync branch from base
         run: |
-          echo "🔄 正在尝试合并上游更新..."
-          if git merge upstream/main --no-edit; then
-            echo "merge_result=success" >> $GITHUB_ENV
-          else
-            echo "merge_result=conflict" >> $GITHUB_ENV
+          # 确保没有未完成的合并，清理工作区
+          git merge --abort || true
+          git reset --hard
+          git clean -fd
+
+          # 切到 main 并拉到最新
+          git checkout main
+          git pull --ff-only origin main
+
+          # 基于 main 新建/重建同步分支
+          git checkout -B sync-upstream
+
+          # 将 upstream/main 的变更引入为“工作区改动”，供后续 action 提交
+          # 用 'git diff' 生成补丁再应用，避免产生合并状态
+          git diff --binary main...upstream/main > /tmp/up.patch || true
+          if [ -s /tmp/up.patch ]; then
+            git apply --index /tmp/up.patch || true
           fi
 
-      - name: Push if success
-        if: env.merge_result == 'success'
+      # 如果没有变化，就直接结束
+      - name: Exit early if no changes
         run: |
-          echo "✅ 同步成功，正在推送..."
-          git push origin main
+          if git diff --cached --quiet && git diff --quiet; then
+            echo "No changes to sync."
+            exit 0
+          fi
 
-      - name: Create PR if conflict
-        if: env.merge_result == 'conflict'
-        uses: peter-evans/create-pull-request@v5
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: sync upstream (conflicts need resolution)"
-          title: "⚠️ Sync upstream - conflicts detected"
-          body: "GitHub Actions 自动同步时发现冲突，请手动解决。"
-          branch: sync-upstream
+          # 你要的三个关键字段
+          commit-message: "chore: sync upstream"
+          branch: "sync-upstream"         # 固定使用这条分支承载后续同步
+          title: "Sync upstream"
+          body: |
+            This PR was created automatically to sync changes from **upstream/main**.
+            If conflicts exist, please resolve them in this PR.
+
+          # 可选：明确 PR 目标分支（默认就是当前 checkout 的 main）
+          base: "main"
+
+          # 其它可留默认
+          delete-branch: false
