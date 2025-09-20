@@ -160,7 +160,8 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 创建一个worker，将`danmu_api/worker.js`里的代码直接拷贝到你创建的`worker.js`里，然后点击部署。
 
 ## API食用指南
-支持 forward/senplayer 等支持弹幕API的播放器。
+支持 forward/senplayer/hills/小幻/yamby/eplayerx/afusekt 等支持弹幕API的播放器。
+
 以`senplayer`为例：
 1. 获取到部署之后的API地址，如`http://192.168.1.7:9321/87654321`，其中`87654321`是默认token，前提是没有传TOKEN环境变量
 2. 将API地址填入自定义弹幕API，在`设置 - 弹幕设置 - 自定义弹幕API`
@@ -172,12 +173,15 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 <img src="https://i.mji.rip/2025/09/14/9fdf945fb247994518042691f60d7849.jpeg" style="width:400px" />
 <img src="https://i.mji.rip/2025/09/14/dbacc0cf9c8a839f16b8960de1f38f11.jpeg" style="width:400px" />
 
+> 注意：小幻在填写API的时候需要在API后面加上`/api/v2`，如`http://192.168.1.7:9321/87654321/api/v2`
+
 ## 环境变量列表
 | 变量名称      | 描述 |
 | ----------- | ----------- |
-| TOKEN      | 用户token       |
-| OTHER_SERVER   | 兜底第三方弹幕服务器，如 https://api.danmu.icu        |
-| VOD_SERVER      | vod查询站点，如 https://www.caiji.cyou       |
+| TOKEN      | 【可选】自定义用户token，不填默认为`87654321`       |
+| OTHER_SERVER   | 【可选】兜底第三方弹幕服务器，如 https://api.danmu.icu        |
+| VOD_SERVER      | 【可选】vod查询站点，如 https://www.caiji.cyou       |
+| BILIBILI_COOKIE      | 【可选】b站cookie（填入后能抓取完整弹幕），如 `buvid3=E2BCA ... eao6; theme-avatar-tip-show=SHOWED`，请自行通过浏览器或抓包工具抓取    |
 
 ## 项目结构
 ```
@@ -189,6 +193,9 @@ danmu_api/
 │   ├── server.js       # 本地node启动脚本
 │   ├── worker.js       # 主 API 服务器代码
 │   ├── worker.test.js  # 测试文件
+├── node-functions/
+│   ├── [[...path]]..js # edgeone pages 所有路由跳转指向index
+│   ├── index.js        # edgeone pages 中间处理逻辑
 ├── .gitignore
 ├── Dockerfile
 ├── package.json
