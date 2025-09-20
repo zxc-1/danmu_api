@@ -9,13 +9,6 @@ permissions:
   contents: write
   pull-requests: write
 
-env:
-  # ▼▼ 这里已经替换成你的上游仓库 ▼▼
-  UPSTREAM_REPO: "https://github.com/huangxd-/danmu_api.git"
-  UPSTREAM_BRANCH: "main"          # 上游分支
-  BASE_BRANCH: "main"              # 你仓库的目标分支
-  SYNC_BRANCH: "sync-upstream"     # 用于承载同步改动的分支
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -30,48 +23,29 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add & fetch upstream
+      - name: Fetch upstream
         run: |
-          git remote add upstream "${{ env.UPSTREAM_REPO }}" || true
+          git remote add upstream https://github.com/huangxd-/danmu_api.git || true
           git fetch upstream --prune
 
-      # 🔑 核心：不做 git merge，避免进入合并状态
-      - name: Prepare sync branch and stage upstream changes as working edits
-        run: |
-          # 确保工作区干净
-          git merge --abort || true
-          git reset --hard
-          git clean -fd
+          # 保证当前在 main 分支并拉取最新
+          git checkout main
+          git pull --ff-only origin main
 
-          # 回到 base 分支并更新
-          git checkout "${{ env.BASE_BRANCH }}"
-          git pull --ff-only origin "${{ env.BASE_BRANCH }}"
-
-          # 基于 base 分支创建/重建同步分支
-          git checkout -B "${{ env.SYNC_BRANCH }}"
-
-          # 生成 upstream 与 base 的差异，并作为工作区改动应用
-          git diff --binary "${{ env.BASE_BRANCH }}...upstream/${{ env.UPSTREAM_BRANCH }}" > /tmp/up.patch || true
+          # 直接把 upstream/main 的更新做成改动
+          git checkout -B sync-upstream
+          git diff --binary main...upstream/main > /tmp/up.patch || true
           if [ -s /tmp/up.patch ]; then
             git apply --index /tmp/up.patch || true
           fi
 
-      - name: Exit early if no changes
-        run: |
-          if git diff --cached --quiet && git diff --quiet; then
-            echo "No changes to sync."
-            exit 0
-          fi
-
-      # ✅ 只调用官方 action 创建/更新 PR，不做任何自定义 git reset
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          branch: "${{ env.SYNC_BRANCH }}"             # PR 源分支
-          base:   "${{ env.BASE_BRANCH }}"             # PR 目标分支
+          branch: sync-upstream      # PR 源分支
+          base: main                 # PR 目标分支
           commit-message: "chore: sync upstream"
-          title:  "Sync upstream"
+          title: "Sync upstream"
           body: |
-            This PR was created automatically to sync changes from **upstream/${{ env.UPSTREAM_BRANCH }}**.
-            Please resolve conflicts here if any.
+            Automated PR to pull latest updates from upstream.
           delete-branch: false
