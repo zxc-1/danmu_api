@@ -1,3 +1,17 @@
+特别说明及鸣谢
+
+▶️ 本库中部分内容收集于其他开源项目，在此对原作者表示衷心的感谢。同时我们谴责将他人内容标注为自己原创的行为。
+
+▶️ 使用本项目中的内容所造成的一切后果，均由使用者承担。
+
+@huangxd- 原作者
+
+
+
+
+
+
+
 # LogVar 弹幕 API 服务器
 
 [![GitHub](https://img.shields.io/badge/-GitHub-181717?logo=github)](https://github.com/huangxd-/damnu_api)
