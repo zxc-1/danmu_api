@@ -1,13 +1,15 @@
-name: Mirror upstream
+name: Sync upstream (take upstream on conflict)
 
 on:
-  workflow_dispatch:      # 手动触发
+  workflow_dispatch:
   schedule:
-    - cron: '0 19 * * *'  # 每天北京时间 03:00（示例）
+    - cron: '0 19 * * *'   # 每天北京时间 03:00，可改
 
 jobs:
-  mirror:
+  sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,13 +20,34 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Fetch upstream
+      - name: Add & fetch upstream
         run: |
           git remote add upstream https://github.com/huangxd-/danmu_api.git || true
           git fetch upstream
 
-      - name: Force mirror upstream/main -> origin/main
+      - name: Fast-forward if possible
         run: |
-          git checkout main
-          git reset --hard upstream/main
-          git push -f origin main
+          set -e
+          git switch main
+          if git merge --ff-only upstream/main; then
+            git push origin main
+            echo "FF synced."
+            exit 0
+          fi
+          echo "Not fast-forward; will merge taking upstream."
+
+      - name: Merge taking upstream on conflicts (no force)
+        run: |
+          set -e
+          # 尝试普通合并（可能报冲突，不影响后续步骤）
+          git merge upstream/main || true
+          # 统一采用上游版本解决冲突
+          git checkout --theirs .
+          git add -A
+          # 如果确实有变更再提交
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: sync upstream (prefer upstream on conflicts)"
+            git push origin main
+          else
+            echo "Nothing to commit."
+          fi
