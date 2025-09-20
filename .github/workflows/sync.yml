@@ -1,57 +1,74 @@
 name: Sync upstream
 
 on:
-  workflow_dispatch:   # 手动触发
-  schedule:            # ✅ 新增定时任务
-    - cron: '0 19 * * *'  # 每天北京时间凌晨 2:00
+  workflow_dispatch:
+  schedule:
+    - cron: "0 19 * * *"   # 每天 UTC 19:00（北京+8为次日03:00）
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup git
+      - name: Clean working tree
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Fetch upstream
-        run: |
-          git remote add upstream https://github.com/huangxd-/danmu_api.git || true
-          git fetch upstream
-
-      - name: Try merge
-        id: merge
-        run: |
-          echo "🔄 正在尝试合并上游更新..."
-          if git merge upstream/main --no-edit; then
-            echo "merge_result=success" >> $GITHUB_ENV
-          else
-            echo "merge_result=conflict" >> $GITHUB_ENV
-          fi
-
-      - name: Push if success
-        if: env.merge_result == 'success'
-        run: |
-          echo "✅ 同步成功，正在推送..."
-          git push origin main
-
-      - name: Abort merge & clean (on conflict)
-        if: env.merge_result == 'conflict'
-        run: |
+          echo "======================"
+          echo "🧹  CLEAN WORKING TREE"
+          echo "======================"
           git merge --abort || true
           git reset --hard
           git clean -fd
 
-      - name: Create PR if conflict
-        if: env.merge_result == 'conflict'
-        uses: peter-evans/create-pull-request@v5
+      - name: Stage upstream changes
+        run: |
+          echo "======================"
+          echo "⬇️  FETCH UPSTREAM"
+          echo "======================"
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git remote remove upstream || true
+          git remote add upstream https://github.com/huangxd-/danmu_api.git
+          git fetch upstream --prune
+
+          git checkout main
+          git pull --ff-only origin main
+
+          echo "======================"
+          echo "📊  CALCULATE DIFF"
+          echo "======================"
+          git rev-list --left-right --count main...upstream/main || true
+
+          git diff --binary main...upstream/main > /tmp/up.patch || true
+          if [ -s /tmp/up.patch ]; then
+            echo "🔄  Applying upstream changes..."
+            git apply --index /tmp/up.patch
+          else
+            echo "✅  No upstream changes detected."
+          fi
+
+      - name: Exit if no changes
+        run: |
+          if git diff --cached --quiet && git diff --quiet; then
+            echo "======================"
+            echo "✅  FINISHED - NO CHANGES TO SYNC"
+            echo "======================"
+            exit 0
+          fi
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: sync upstream (conflicts need resolution)"
-          title: "⚠️ Sync upstream - conflicts detected"
-          body: "GitHub Actions 自动同步时发现冲突，请手动解决。"
-          branch: sync-upstream
+          base: main
+          commit-message: "chore: sync upstream"
+          title: "Sync upstream"
+          body: |
+            🔔 Auto PR pulling updates from upstream/main.
+          delete-branch: false
