@@ -1,9 +1,9 @@
-name: Sync upstream (take upstream on conflict)
+name: Sync upstream
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 19 * * *'   # 每天北京时间 03:00，可改
+    - cron: '0 19 * * *'   # 每天 03:00，可改
 
 jobs:
   sync:
@@ -34,20 +34,21 @@ jobs:
             echo "FF synced."
             exit 0
           fi
-          echo "Not fast-forward; will merge taking upstream."
-
-      - name: Merge taking upstream on conflicts (no force)
-        run: |
-          set -e
-          # 尝试普通合并（可能报冲突，不影响后续步骤）
+          echo "Not fast-forward; will merge."
           git merge upstream/main || true
-          # 统一采用上游版本解决冲突
-          git checkout --theirs .
-          git add -A
-          # 如果确实有变更再提交
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: sync upstream (prefer upstream on conflicts)"
+
+      # ⭐ 自动注入本地 README 区块
+      - name: Inject local README content
+        run: |
+          # 读取本地文件
+          LOCAL_CONTENT=$(cat README.local.md)
+          # 替换标记区内容
+          perl -0777 -i -pe "s|(<!-- LOCAL:START -->)(.*?)(<!-- LOCAL:END -->)|\$1\n${LOCAL_CONTENT}\n\$3|s" README.md
+          # 如果有变化就提交
+          if ! git diff --quiet README.md; then
+            git add README.md
+            git commit -m "chore: inject local README content"
             git push origin main
           else
-            echo "Nothing to commit."
+            echo "README already up to date."
           fi
