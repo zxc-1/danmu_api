@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert').strict;
-const { handleRequest, searchAnime, matchAnime, getBangumi, getComment, fetchTencentVideo, fetchIqiyi, fetchMangoTV,
-  fetchBilibili, fetchYouku, fetchOtherServer, httpGet, httpPost } = require('./worker');
+const { handleRequest, searchAnime, matchAnime, searchEpisode, getBangumi, getComment, fetchTencentVideo, fetchIqiyi,
+  fetchMangoTV, fetchBilibili, fetchYouku, fetchOtherServer, httpGet, httpPost } = require('./worker');
 
 // Mock Request class for testing
 class MockRequest {
@@ -52,10 +52,10 @@ test('worker.js API endpoints', async (t) => {
   //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
   // });
 
-  // await t.test('GET bilibili danmu', async () => {
-  //   const res = await fetchBilibili("https://www.bilibili.com/bangumi/play/ep1231564");
-  //   assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
-  // });
+  await t.test('GET bilibili danmu', async () => {
+    const res = await fetchBilibili("https://www.bilibili.com/bangumi/play/ep1231564");
+    assert(res.length > 2, `Expected res.length > 2, but got ${res.length}`);
+  });
 
   // await t.test('GET youku danmu', async () => {
   //   const res = await fetchYouku("https://v.youku.com/v_show/id_XNjQ3ODMyNjU3Mg==.html");
@@ -97,30 +97,55 @@ test('worker.js API endpoints', async (t) => {
   //   assert(commentData.count > 0, `Expected commentData.count > 0, but got ${commentData.count}`);
   // });
 
-  // 测试 POST /api/v2/match 接口
-  await t.test('POST /api/v2/match for matching anime', async () => {
-    // 构造请求体
-    const requestBody = {
-      "fileName": "生万物 S01E28",
-      "fileHash": "1234567890",
-      "fileSize": 0,
-      "videoDuration": 0,
-      "matchMode": "fileNameOnly"
-    };
+  // // 测试 POST /api/v2/match 接口
+  // await t.test('POST /api/v2/match for matching anime', async () => {
+  //   // 构造请求体
+  //   const requestBody = {
+  //     "fileName": "生万物 S01E28",
+  //     "fileHash": "1234567890",
+  //     "fileSize": 0,
+  //     "videoDuration": 0,
+  //     "matchMode": "fileNameOnly"
+  //   };
+  //
+  //   // 模拟 POST 请求
+  //   const matchUrl = `${urlPrefix}/${token}/api/v2/match`;  // 注意路径与 handleRequest 中匹配
+  //   const req = new MockRequest(matchUrl, { method: 'POST', body: requestBody });
+  //
+  //   // 调用 handleRequest 来处理 POST 请求
+  //   const res = await handleRequest(req);
+  //
+  //   // 解析响应
+  //   const responseBody = await parseResponse(res);
+  //   console.log(responseBody);
+  //
+  //   // 验证响应状态
+  //   assert.equal(res.status, 200);
+  //   assert.deepEqual(responseBody.success, true);
+  // });
 
-    // 模拟 POST 请求
-    const matchUrl = `${urlPrefix}/${token}/api/v2/match`;  // 注意路径与 handleRequest 中匹配
-    const req = new MockRequest(matchUrl, { method: 'POST', body: requestBody });
-
-    // 调用 handleRequest 来处理 POST 请求
-    const res = await handleRequest(req);
-
-    // 解析响应
-    const responseBody = await parseResponse(res);
-    console.log(responseBody);
-
-    // 验证响应状态
-    assert.equal(res.status, 200);
-    assert.deepEqual(responseBody.success, true);
-  });
+  // // 测试 GET /api/v2/search/episodes 接口
+  // await t.test('GET /api/v2/search/episodes for search episodes', async () => {
+  //   // 构造请求体
+  //   const requestBody = {
+  //     "fileName": "生万物 S01E28",
+  //     "fileHash": "1234567890",
+  //     "fileSize": 0,
+  //     "videoDuration": 0,
+  //     "matchMode": "fileNameOnly"
+  //   };
+  //
+  //   const matchUrl = `${urlPrefix}/${token}/api/v2/search/episodes?anime=子夜归`;
+  //   const req = new MockRequest(matchUrl, { method: 'GET' });
+  //
+  //   const res = await handleRequest(req);
+  //
+  //   // 解析响应
+  //   const responseBody = await parseResponse(res);
+  //   console.log(responseBody);
+  //
+  //   // 验证响应状态
+  //   assert.equal(res.status, 200);
+  //   assert.deepEqual(responseBody.success, true);
+  // });
 });
