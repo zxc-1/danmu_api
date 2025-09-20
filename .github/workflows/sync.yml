@@ -1,51 +1,57 @@
 name: Sync upstream
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 19 * * *"   # 每天 UTC 19:00（北京时间次日 03:00）
-
-permissions:
-  contents: write
-  pull-requests: write
+  workflow_dispatch:   # 手动触发
+  schedule:            # ✅ 新增定时任务
+    - cron: '0 19 * * *'  # 每天北京时间凌晨 2:00
 
 jobs:
   sync:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
-      - name: Setup git identity
+      - name: Setup git
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Fetch upstream
         run: |
           git remote add upstream https://github.com/huangxd-/danmu_api.git || true
-          git fetch upstream --prune
+          git fetch upstream
 
-          # 保证当前在 main 分支并拉取最新
-          git checkout main
-          git pull --ff-only origin main
-
-          # 直接把 upstream/main 的更新做成改动
-          git checkout -B sync-upstream
-          git diff --binary main...upstream/main > /tmp/up.patch || true
-          if [ -s /tmp/up.patch ]; then
-            git apply --index /tmp/up.patch || true
+      - name: Try merge
+        id: merge
+        run: |
+          echo "🔄 正在尝试合并上游更新..."
+          if git merge upstream/main --no-edit; then
+            echo "merge_result=success" >> $GITHUB_ENV
+          else
+            echo "merge_result=conflict" >> $GITHUB_ENV
           fi
 
-      - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v7
+      - name: Push if success
+        if: env.merge_result == 'success'
+        run: |
+          echo "✅ 同步成功，正在推送..."
+          git push origin main
+
+      - name: Abort merge & clean (on conflict)
+        if: env.merge_result == 'conflict'
+        run: |
+          git merge --abort || true
+          git reset --hard
+          git clean -fd
+
+      - name: Create PR if conflict
+        if: env.merge_result == 'conflict'
+        uses: peter-evans/create-pull-request@v5
         with:
-          branch: sync-upstream      # PR 源分支
-          base: main                 # PR 目标分支
-          commit-message: "chore: sync upstream"
-          title: "Sync upstream"
-          body: |
-            Automated PR to pull latest updates from upstream.
-          delete-branch: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: sync upstream (conflicts need resolution)"
+          title: "⚠️ Sync upstream - conflicts detected"
+          body: "GitHub Actions 自动同步时发现冲突，请手动解决。"
+          branch: sync-upstream
