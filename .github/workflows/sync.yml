@@ -3,11 +3,18 @@ name: Sync upstream
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 19 * * *'  # 每天北京时间 03:00（UTC 19:00）
+    - cron: "0 19 * * *"   # 每天 UTC 19:00（北京时间次日 03:00）
 
 permissions:
   contents: write
   pull-requests: write
+
+env:
+  # ▼▼ 这里已经替换成你的上游仓库 ▼▼
+  UPSTREAM_REPO: "https://github.com/huangxd-/danmu_api.git"
+  UPSTREAM_BRANCH: "main"          # 上游分支
+  BASE_BRANCH: "main"              # 你仓库的目标分支
+  SYNC_BRANCH: "sync-upstream"     # 用于承载同步改动的分支
 
 jobs:
   sync:
@@ -20,39 +27,35 @@ jobs:
 
       - name: Setup git identity
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Add & fetch upstream
         run: |
-          git remote add upstream https://github.com/huangxd-/danmu_api.git || true
+          git remote add upstream "${{ env.UPSTREAM_REPO }}" || true
           git fetch upstream --prune
 
-      # ✅ 关键：不要把 upstream 直接 merge 到 main（这一步最容易留下冲突）
-      # 我们改为：创建一支同步分支，把 upstream/main 的内容“变更”放到当前仓库，
-      # 把所有文件变更留给 create-pull-request 去提交和发 PR。
-      - name: Prepare sync branch from base
+      # 🔑 核心：不做 git merge，避免进入合并状态
+      - name: Prepare sync branch and stage upstream changes as working edits
         run: |
-          # 确保没有未完成的合并，清理工作区
+          # 确保工作区干净
           git merge --abort || true
           git reset --hard
           git clean -fd
 
-          # 切到 main 并拉到最新
-          git checkout main
-          git pull --ff-only origin main
+          # 回到 base 分支并更新
+          git checkout "${{ env.BASE_BRANCH }}"
+          git pull --ff-only origin "${{ env.BASE_BRANCH }}"
 
-          # 基于 main 新建/重建同步分支
-          git checkout -B sync-upstream
+          # 基于 base 分支创建/重建同步分支
+          git checkout -B "${{ env.SYNC_BRANCH }}"
 
-          # 将 upstream/main 的变更引入为“工作区改动”，供后续 action 提交
-          # 用 'git diff' 生成补丁再应用，避免产生合并状态
-          git diff --binary main...upstream/main > /tmp/up.patch || true
+          # 生成 upstream 与 base 的差异，并作为工作区改动应用
+          git diff --binary "${{ env.BASE_BRANCH }}...upstream/${{ env.UPSTREAM_BRANCH }}" > /tmp/up.patch || true
           if [ -s /tmp/up.patch ]; then
             git apply --index /tmp/up.patch || true
           fi
 
-      # 如果没有变化，就直接结束
       - name: Exit early if no changes
         run: |
           if git diff --cached --quiet && git diff --quiet; then
@@ -60,19 +63,15 @@ jobs:
             exit 0
           fi
 
+      # ✅ 只调用官方 action 创建/更新 PR，不做任何自定义 git reset
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v7
         with:
-          # 你要的三个关键字段
+          branch: "${{ env.SYNC_BRANCH }}"             # PR 源分支
+          base:   "${{ env.BASE_BRANCH }}"             # PR 目标分支
           commit-message: "chore: sync upstream"
-          branch: "sync-upstream"         # 固定使用这条分支承载后续同步
-          title: "Sync upstream"
+          title:  "Sync upstream"
           body: |
-            This PR was created automatically to sync changes from **upstream/main**.
-            If conflicts exist, please resolve them in this PR.
-
-          # 可选：明确 PR 目标分支（默认就是当前 checkout 的 main）
-          base: "main"
-
-          # 其它可留默认
+            This PR was created automatically to sync changes from **upstream/${{ env.UPSTREAM_BRANCH }}**.
+            Please resolve conflicts here if any.
           delete-branch: false
