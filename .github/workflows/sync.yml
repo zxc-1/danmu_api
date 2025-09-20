@@ -1,21 +1,21 @@
-name: Sync upstream
+name: Mirror upstream
 
 on:
-  workflow_dispatch:   # 手动触发
-  schedule:            # ✅ 新增定时任务
-    - cron: '0 19 * * *'  # 每天北京时间凌晨 2:00
+  workflow_dispatch:      # 手动触发
+  schedule:
+    - cron: '0 19 * * *'  # 每天北京时间 03:00（示例）
 
 jobs:
-  sync:
+  mirror:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup git
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Fetch upstream
@@ -23,28 +23,8 @@ jobs:
           git remote add upstream https://github.com/huangxd-/danmu_api.git || true
           git fetch upstream
 
-      - name: Try merge
-        id: merge
+      - name: Force mirror upstream/main -> origin/main
         run: |
-          echo "🔄 正在尝试合并上游更新..."
-          if git merge upstream/main --no-edit; then
-            echo "merge_result=success" >> $GITHUB_ENV
-          else
-            echo "merge_result=conflict" >> $GITHUB_ENV
-          fi
-
-      - name: Push if success
-        if: env.merge_result == 'success'
-        run: |
-          echo "✅ 同步成功，正在推送..."
-          git push origin main
-
-      - name: Create PR if conflict
-        if: env.merge_result == 'conflict'
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit-message: "chore: sync upstream (conflicts need resolution)"
-          title: "⚠️ Sync upstream - conflicts detected"
-          body: "GitHub Actions 自动同步时发现冲突，请手动解决。"
-          branch: sync-upstream
+          git checkout main
+          git reset --hard upstream/main
+          git push -f origin main
