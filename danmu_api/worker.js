@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.0.4";
+const VERSION = "1.0.5";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -56,13 +56,13 @@ let youkuConcurrency = DEFAULT_YOUKU_CONCURRENCY;
 function resolveYoukuConcurrency(env) {
   if (env && env.YOUKU_CONCURRENCY) {
     const n = parseInt(env.YOUKU_CONCURRENCY, 10);
-    if (!Number.isNaN(n) && n > 0) return n;
+    if (!Number.isNaN(n) && n > 0) return Math.min(n, 16);
   }
   if (typeof process !== "undefined" && process.env?.YOUKU_CONCURRENCY) {
     const n = parseInt(process.env.YOUKU_CONCURRENCY, 10);
-    if (!Number.isNaN(n) && n > 0) return n;
+    if (!Number.isNaN(n) && n > 0) return Math.min(n, 16);
   }
-  return DEFAULT_YOUKU_CONCURRENCY;
+  return Math.min(DEFAULT_YOUKU_CONCURRENCY, 16);
 }
 
 // 添加元素到 episodeIds：检查 url 是否存在，若不存在则以自增 id 添加
