@@ -14,6 +14,8 @@
 
 新加了 [tg频道](https://t.me/logvar_danmu_channel) ，方便发送更新通知，以及群组，太多人私信咨询了，索性增加一个 [互助群](https://t.me/logvar_danmu_group) ，大家有问题可以在群里求助。
 
+> 请不要在国内媒体平台宣传本项目！
+
 ## 功能
 - **API 接口**：
   - `GET /api/v2/search/anime?keyword=${queryTitle}`：根据关键字搜索动漫。
@@ -218,6 +220,11 @@ danmu_api/
 
 ### 关联项目
 [danmu_api 自动同步部署方案 - 永远保持最新版本！实时同步原作者更新](https://github.com/xiaoyao20084321/log-var-danmu-deployment-guide)
+
+### 贡献者
+<a href="https://github.com/huangxd-/danmu_api/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=huangxd-/danmu_api" alt="contributors" />
+</a>
 
 ### 📈项目 Star 数增长趋势
 #### Star History
