@@ -128,7 +128,7 @@
 Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，能提高访问速度，体验更优
 > hk有可能访问不了360，也可以尝试切其他region，如新加坡等
 
-## 部署到 腾讯云 edgeone pages 【推荐】
+## 部署到 腾讯云 edgeone pages
 
 ### 一键部署
 [![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://console.cloud.tencent.com/edgeone/pages/new?template=https://github.com/huangxd-/danmu_api&project-name=danmu-api&root-directory=.%2F&env=TOKEN)
@@ -142,6 +142,8 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 > 也可直接用国际站的部署按钮一键部署，默认选择"全球可用区（不含中国大陆）" [![使用 EdgeOne Pages 部署](https://cdnstatic.tencentcs.com/edgeone/pages/deploy.svg)](https://edgeone.ai/pages/new?template=https://github.com/huangxd-/danmu_api&project-name=danmu-api&root-directory=.%2F&env=TOKEN)
 > 
 <img src="https://i.mji.rip/2025/09/17/3a675876dabb92e4ce45c10d543ce66b.png" style="width:400px" />
+
+> 如果访问遇到404等问题，可能是edgeone pages修改了访问策略，每次接口请求都转发到了新的环境，没有缓存，导致获取不到对应的弹幕，推荐用vercel部署。
 
 ## 部署到 Cloudflare
 
@@ -160,6 +162,8 @@ Settings > Functions > Advanced Setting > Function Region 切换为 Hong Kong，
 
 ### 手动部署
 创建一个worker，将`danmu_api/worker.js`里的代码直接拷贝到你创建的`worker.js`里，然后点击部署。
+
+> cf部署可能不稳定，推荐用vercel部署。
 
 ## API食用指南
 支持 forward/senplayer/hills/小幻/yamby/eplayerx/afusekt 等支持弹幕API的播放器。
