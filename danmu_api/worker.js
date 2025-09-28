@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.1.4";
+const VERSION = "1.1.5";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -137,7 +137,7 @@ const DEFAULT_EPISODE_TITLE_FILTER = "(特别|惊喜|纳凉)?企划|合伙人手
   "NG镜头|NG花絮|番外篇|番外特辑|制作特辑|拍摄特辑|幕后特辑|导演特辑|演员特辑|片尾曲|插曲|主题曲|背景音乐|OST|音乐MV|歌曲MV|前季回顾|" +
   "剧情回顾|往期回顾|内容总结|剧情盘点|精选合集|剪辑合集|混剪视频|独家专访|演员访谈|导演访谈|主创访谈|媒体采访|发布会采访|抢先看|抢先版|" +
   "试看版|短剧|精编|会员版|Plus|独家版|特别版|短片|合唱|陪看|MV|高清正片|发布会|.{2,}篇|观察室|上班那点事儿|周top|赛段|直拍|REACTION|" +
-  "VLOG|全纪录"; // 默认 剧集标题正则过滤
+  "VLOG|全纪录|开播|先导|总宣|展演"; // 默认 剧集标题正则过滤
 let episodeTitleFilter;
 
 // 这里既支持 Cloudflare env，也支持 Node process.env
