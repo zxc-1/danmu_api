@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.2.0";
+const VERSION = "1.2.1";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -2753,11 +2753,11 @@ async function fetchHanjutvEpisodeDanmu(sid) {
 }
 
 function formatHanjutvComments(items) {
-  return items.map(c=>({
+  return items.map(c => ({
     cid: Number(c.did),
-    p: `${c.t.toFixed(2)},${c.tp},${Number(c.sc)},[hanjutv]`,
+    p: `${(c.t / 1000).toFixed(2)},${c.tp},${Number(c.sc)},[hanjutv]`,
     m: c.con,
-    t: c.t
+    t: Math.round(c.t / 1000)
   }));
 }
 
