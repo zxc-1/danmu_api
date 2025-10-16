@@ -854,7 +854,7 @@ async function get360Zongyi(title, entId, site, year) {
         links.push({
             "name": episodeInfo.id,
             "url": episodeInfo.url,
-            "title": `【${site}】${title}(${year}) #${episodeInfo.name} ${episodeInfo.period}#`,
+            "title": `【${site}】 #${episodeInfo.name} ${episodeInfo.period}#`,
             "sort": epNum || episodeInfo.sort || null
         });
       }
@@ -2645,11 +2645,12 @@ async function fetchYouku(inputUrl) {
             content: "",
           };
           content.timepoint = danmu.playat / 1000;
-          if (danmu.propertis?.color) {
-            content.color = JSON.parse(danmu.propertis).color;
+          const prop = JSON.parse(danmu.propertis)
+          if (prop?.color) {
+            content.color = prop.color;
           }
-          if (danmu.propertis?.pos) {
-            const pos = JSON.parse(danmu.propertis).pos;
+          if (prop?.pos) {
+            const pos = prop.pos;
             if (pos === 1) content.ct = 5;
             else if (pos === 2) content.ct = 4;
           }
@@ -3754,7 +3755,12 @@ function log(level, ...args) {
   const message = args
     .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : arg))
     .join(" ");
-  const timestamp = new Date().toISOString();
+
+  // 获取上海时区时间(UTC+8)
+  const now = new Date();
+  const shanghaiTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  const timestamp = shanghaiTime.toISOString().replace('Z', '+08:00');
+
   logBuffer.push({ timestamp, level, message });
   if (logBuffer.length > MAX_LOGS) logBuffer.shift();
   console[level](...args);
@@ -3900,7 +3906,7 @@ async function handleVodAnimes(animesVod, curAnimes, key) {
         links.push({
           "name": count,
           "url": epInfo[1],
-          "title": `【${platform}】${anime.vod_name}(${anime.vod_year}) #${epInfo[0]}#`
+          "title": `【${platform}】 #${epInfo[0]}#`
         });
       }
     }
@@ -3952,7 +3958,7 @@ async function handle360Animes(animes360, curAnimes) {
           links.push({
             "name": i + 1,
             "url": item.url,
-            "title": `【${anime.seriesSite}】${anime.titleTxt}(${anime.year}) #${i + 1}#`
+            "title": `【${anime.seriesSite}】 #${i + 1}#`
           });
         }
       }
@@ -4011,7 +4017,7 @@ async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
         links.push({
           "name": ep.episodeIndex,
           "url": ep.episodeId,
-          "title": `【${ep.provider}】${anime.title}(${anime.year}) #${ep.title}#`
+          "title": `【${ep.provider}】 #${ep.title}#`
         });
       }
 
@@ -4064,7 +4070,7 @@ async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
         links.push({
           "name": ep.title,
           "url": ep.pid,
-          "title": `【hanjutv】${anime.name}(${new Date(anime.updateTime).getFullYear()}) #${epTitle}#`
+          "title": `【hanjutv】 #${epTitle}#`
         });
       }
 
@@ -4112,7 +4118,7 @@ async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
         links.push({
           "name": ep.episode,
           "url": ep.videoSn.toString(),
-          "title": `【bahamut】${simplized(anime.title)}(${(anime.info.match(/(\d{4})/) || [null])[0]}) #${epTitle}#`
+          "title": `【bahamut】 #${epTitle}#`
         });
       }
 
@@ -4203,6 +4209,56 @@ async function searchAnime(url) {
   log("info", `Search anime with keyword: ${queryTitle}`);
 
   const curAnimes = [];
+
+  // 链接弹幕解析
+  const urlRegex = /^(https?:\/\/)?([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,6}(:\d+)?(\/[^\s]*)?$/;
+  if (urlRegex.test(queryTitle)) {
+    const tmpAnime = {
+      "animeId": 111,
+      "bangumiId": "string",
+      "animeTitle": queryTitle,
+      "type": "type",
+      "typeDescription": "string",
+      "imageUrl": "string",
+      "startDate": "2025-08-08T13:25:11.189Z",
+      "episodeCount": 1,
+      "rating": 0,
+      "isFavorited": true
+    };
+
+    let platform = "all";
+    if (queryTitle.includes(".qq.com")) {
+      platform = "qq";
+    } else if (queryTitle.includes(".iqiyi.com")) {
+      platform = "qiyi";
+    } else if (queryTitle.includes(".mgtv.com")) {
+      platform = "imgo";
+    } else if (queryTitle.includes(".youku.com")) {
+      platform = "youku";
+    } else if (queryTitle.includes(".bilibili.com")) {
+      platform = "bilibili1";
+    }
+
+    const links = [{
+      "name": "手动解析链接弹幕",
+      "url": queryTitle,
+      "title": `【${platform}】 #${queryTitle}#`
+    }];
+    curAnimes.push(tmpAnime);
+    const exists = animes.some(existingAnime => existingAnime.animeId === tmpAnime.animeId);
+    if (!exists) {
+      const transformedAnimeCopy = {...tmpAnime, links: links};
+      addAnime(transformedAnimeCopy);
+    }
+    if (animes.length > MAX_ANIMES) removeEarliestAnime();
+
+    return jsonResponse({
+      errorCode: 0,
+      success: true,
+      errorMessage: "",
+      animes: curAnimes,
+    });
+  }
 
   try {
     // 根据 sourceOrderArr 动态构建请求数组

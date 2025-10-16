@@ -39,6 +39,7 @@ LogVar 弹幕 API 服务器
 - **日志记录**：捕获 `console.log`（info 级别）和 `console.error`（error 级别），JSON 内容格式化输出。
 - **部署支持**：支持本地运行、Docker 容器化、Vercel 一键部署、Cloudflare 一键部署和 Docker 一键启动。
 - **手动选择记忆**：支持记住之前搜索title时手动选择的anime，并在后续的match自动匹配时优选该anime【实验性】。
+- **手动搜索支持输入播放链接获取弹幕**：支持手动搜索的播放器输入爱优腾芒哔播放链接可获取弹幕，如`senplayer`。
 
 ## 前置条件
 - Node.js（v18.0.0 或更高版本；理论兼容更低版本，请自行测试）
@@ -212,6 +213,7 @@ LogVar 弹幕 API 服务器
 <img src="https://i.mji.rip/2025/09/14/80aa5205d49a767447f61938f2dada20.jpeg" style="width:400px" />
 <img src="https://i.mji.rip/2025/09/14/9fdf945fb247994518042691f60d7849.jpeg" style="width:400px" />
 <img src="https://i.mji.rip/2025/09/14/dbacc0cf9c8a839f16b8960de1f38f11.jpeg" style="width:400px" />
+4. 现已支持手动搜索标题输入爱优腾芒哔播放链接获取弹幕。
 
 > 注意：
 >
