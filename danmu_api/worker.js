@@ -110,7 +110,7 @@ let sourceOrderArr = [];
 function resolveSourceOrder(env, deployPlatform) {
   // 获取环境变量中的 SOURCE_ORDER 配置
   let sourceOrder = DEFAULT_SOURCE_ORDER;
-  if (deployPlatform === "cloudflare" || deployPlatform === "vercel") {
+  if (deployPlatform === "cloudflare" || deployPlatform === "vercel" || deployPlatform === "netlify") {
       sourceOrder += ",bahamut";
   }
 
@@ -349,9 +349,6 @@ function addAnime(anime) {
         return false;
     }
 
-    // 创建 anime 的副本以避免修改原始对象
-    const animeCopy = { ...anime, links: [] }; // 初始化 links 为空数组
-
     // 遍历 links，调用 addEpisode，并收集返回的对象
     const newLinks = [];
     anime.links.forEach(link => {
@@ -365,17 +362,28 @@ function addAnime(anime) {
         }
     });
 
-    // 替换 animeCopy 的 links
-    animeCopy.links = newLinks;
+    // 创建新的 anime 副本
+    const animeCopy = { ...anime, links: newLinks };
 
-    // 添加到 animes
+    // 检查是否已存在相同 animeId 的 anime
+    const existingAnimeIndex = animes.findIndex(a => a.animeId === anime.animeId);
+
+    if (existingAnimeIndex !== -1) {
+        // 如果存在，先删除旧的
+        animes.splice(existingAnimeIndex, 1);
+        log("info", `Removed old anime at index: ${existingAnimeIndex}`);
+    }
+
+    // 将新的添加到数组末尾（最新位置）
     animes.push(animeCopy);
-    log("info", `Added anime: ${JSON.stringify(animeCopy)}`);
+    log("info", `Added anime to latest position: ${anime.animeId}`);
 
     // 检查是否超过 MAX_ANIMES，超过则删除最早的
     if (animes.length > MAX_ANIMES) {
         removeEarliestAnime();
     }
+
+    console.log("animes: ", animes);
 
     return true;
 }
@@ -641,6 +649,43 @@ async function httpPost(url, body, options = {}) {
       log("error", '- 原因:', error.cause.message);
     }
     throw error;
+  }
+}
+
+async function getPageTitle(url) {
+  try {
+    // 使用 httpGet 获取网页内容
+    const response = await httpGet(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15'
+      }
+    });
+
+    // response.data 包含 HTML 内容
+    const html = response.data;
+
+    // 方法1: 使用正则表达式提取 <title> 标签
+    const titleMatch = html.match(/<title[^>]*>(.*?)<\/title>/i);
+    if (titleMatch && titleMatch[1]) {
+      // 解码 HTML 实体（如 &nbsp; &amp; 等）
+      const title = titleMatch[1]
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim();
+
+      return title;
+    }
+
+    // 如果没找到 title 标签
+    return url;
+
+  } catch (error) {
+    log("error", `获取标题失败: ${error.message}`);
+    return url;
   }
 }
 
@@ -4013,11 +4058,7 @@ async function handleVodAnimes(animesVod, curAnimes, key) {
       };
 
       curAnimes.push(transformedAnime);
-      const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-      if (!exists) {
-        const transformedAnimeCopy = {...transformedAnime, links: links};
-        addAnime(transformedAnimeCopy);
-      }
+      addAnime({...transformedAnime, links: links});
       if (animes.length > MAX_ANIMES) removeEarliestAnime();
     }
   }));
@@ -4081,11 +4122,7 @@ async function handle360Animes(animes360, curAnimes) {
       };
 
       curAnimes.push(transformedAnime);
-      const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-      if (!exists) {
-        const transformedAnimeCopy = {...transformedAnime, links: links};
-        addAnime(transformedAnimeCopy);
-      }
+      addAnime({...transformedAnime, links: links});
       if (animes.length > MAX_ANIMES) removeEarliestAnime();
     }
   }));
@@ -4124,11 +4161,7 @@ async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
 
         curAnimes.push(transformedAnime);
 
-        const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-        if (!exists) {
-          const transformedAnimeCopy = {...transformedAnime, links: links};
-          addAnime(transformedAnimeCopy);
-        }
+        addAnime({...transformedAnime, links: links});
 
         if (animes.length > MAX_ANIMES) removeEarliestAnime();
       }
@@ -4177,11 +4210,7 @@ async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
 
         curAnimes.push(transformedAnime);
 
-        const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-        if (!exists) {
-          const transformedAnimeCopy = {...transformedAnime, links: links};
-          addAnime(transformedAnimeCopy);
-        }
+        addAnime({...transformedAnime, links: links});
 
         if (animes.length > MAX_ANIMES) removeEarliestAnime();
       }
@@ -4225,11 +4254,7 @@ async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
 
         curAnimes.push(transformedAnime);
 
-        const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-        if (!exists) {
-          const transformedAnimeCopy = {...transformedAnime, links: links};
-          addAnime(transformedAnimeCopy);
-        }
+        addAnime({...transformedAnime, links: links});
 
         if (animes.length > MAX_ANIMES) removeEarliestAnime();
       }
@@ -4277,11 +4302,7 @@ async function handleTencentAnimes(animesTencent, queryTitle, curAnimes) {
 
         curAnimes.push(transformedAnime);
 
-        const exists = animes.some(existingAnime => existingAnime.animeId.toString() === transformedAnime.animeId.toString());
-        if (!exists) {
-          const transformedAnimeCopy = {...transformedAnime, links: links};
-          addAnime(transformedAnimeCopy);
-        }
+        addAnime({...transformedAnime, links: links});
 
         if (animes.length > MAX_ANIMES) removeEarliestAnime();
       }
@@ -4314,7 +4335,7 @@ async function searchAnime(url) {
       "isFavorited": true
     };
 
-    let platform = "all";
+    let platform = "unknown";
     if (queryTitle.includes(".qq.com")) {
       platform = "qq";
     } else if (queryTitle.includes(".iqiyi.com")) {
@@ -4327,18 +4348,21 @@ async function searchAnime(url) {
       platform = "bilibili1";
     }
 
+    const pageTitle = await getPageTitle(queryTitle);
+
     const links = [{
       "name": "手动解析链接弹幕",
       "url": queryTitle,
-      "title": `【${platform}】 #${queryTitle}#`
+      "title": `【${platform}】 #${pageTitle}#`
     }];
     curAnimes.push(tmpAnime);
-    const exists = animes.some(existingAnime => existingAnime.animeId === tmpAnime.animeId);
-    if (!exists) {
-      const transformedAnimeCopy = {...tmpAnime, links: links};
-      addAnime(transformedAnimeCopy);
-    }
+    addAnime({...tmpAnime, links: links});
     if (animes.length > MAX_ANIMES) removeEarliestAnime();
+
+    // 如果有新的anime获取到，则更新redis
+    if (redisValid && curAnimes.length !== 0) {
+      await updateCaches();
+    }
 
     return jsonResponse({
       errorCode: 0,
@@ -5191,6 +5215,39 @@ export async function vercelHandler(req, res) {
   response.headers.forEach((value, key) => res.setHeader(key, value));
   const text = await response.text();
   res.send(text);
+}
+
+// --- Netlify 入口 ---
+export async function netlifyHandler(event, context) {
+  // 获取客户端 IP
+  const clientIp = event.headers['x-nf-client-connection-ip'] ||
+                   event.headers['x-forwarded-for'] ||
+                   context.ip ||
+                   'unknown';
+
+  // 构造标准 Request 对象
+  const url = event.rawUrl || `https://${event.headers.host}${event.path}`;
+
+  const request = new Request(url, {
+    method: event.httpMethod,
+    headers: new Headers(event.headers),
+    body: event.body ? event.body : undefined,
+  });
+
+  // 调用核心处理函数
+  const response = await handleRequest(request, process.env, "netlify", clientIp);
+
+  // 转换为 Netlify 响应格式
+  const headers = {};
+  response.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
+
+  return {
+    statusCode: response.status,
+    headers,
+    body: await response.text(),
+  };
 }
 
 // 为了测试导出 handleRequest
