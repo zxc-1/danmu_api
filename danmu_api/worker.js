@@ -9,7 +9,7 @@ if (typeof process !== "undefined" && process.env && !process.env.CLOUDFLARE_ENV
 
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.4.0";
+const VERSION = "1.4.1";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -4498,7 +4498,43 @@ function matchSeason(anime, queryTitle, season) {
   }
 }
 
+// 提取年份的辅助函数
+function extractYear(animeTitle) {
+  const match = animeTitle.match(/\((\d{4})\)/);
+  return match ? parseInt(match[1]) : null;
+}
+
+// 按年份降序排序并添加到curAnimes
+function sortAndPushAnimesByYear(processedAnimes, curAnimes) {
+  processedAnimes
+    .filter(anime => anime !== null)
+    .sort((a, b) => {
+      const yearA = extractYear(a.animeTitle);
+      const yearB = extractYear(b.animeTitle);
+
+      // 如果都有年份，按年份降序排列
+      if (yearA !== null && yearA !== undefined && yearB !== null && yearB !== undefined) {
+        return yearB - yearA;
+      }
+      // 如果只有a有年份，a排在前面
+      if ((yearA !== null && yearA !== undefined) && (yearB === null || yearB === undefined)) {
+        return -1;
+      }
+      // 如果只有b有年份，b排在前面
+      if ((yearA === null || yearA === undefined) && (yearB !== null && yearB !== undefined)) {
+        return 1;
+      }
+      // 如果都没有年份，保持原顺序
+      return 0;
+    })
+    .forEach(anime => {
+      curAnimes.push(anime);
+    });
+}
+
 async function handleVodAnimes(animesVod, curAnimes, key) {
+  const tmpAnimes = [];
+
   const processVodAnimes = await Promise.all(animesVod.map(async (anime) => {
     let vodPlayFromList = anime.vod_play_from.split("$$$");
     vodPlayFromList = vodPlayFromList.map(item => {
@@ -4542,16 +4578,20 @@ async function handleVodAnimes(animesVod, curAnimes, key) {
         isFavorited: true,
       };
 
-      curAnimes.push(transformedAnime);
+      tmpAnimes.push(transformedAnime);
       addAnime({...transformedAnime, links: links});
       if (animes.length > MAX_ANIMES) removeEarliestAnime();
     }
   }));
 
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+
   return processVodAnimes;
 }
 
 async function handle360Animes(animes360, curAnimes) {
+  const tmpAnimes = [];
+
   const process360Animes = await Promise.all(animes360.map(async (anime) => {
     let links = [];
     if (anime.cat_name === "电影") {
@@ -4606,16 +4646,20 @@ async function handle360Animes(animes360, curAnimes) {
         isFavorited: true,
       };
 
-      curAnimes.push(transformedAnime);
+      tmpAnimes.push(transformedAnime);
       addAnime({...transformedAnime, links: links});
       if (animes.length > MAX_ANIMES) removeEarliestAnime();
     }
   }));
 
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+
   return process360Animes;
 }
 
 async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
+  const tmpAnimes = [];
+
   // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
   const processRenrenAnimes = await Promise.all(animesRenren
     .filter(s => s.title.includes(queryTitle))
@@ -4644,7 +4688,7 @@ async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
           isFavorited: true,
         };
 
-        curAnimes.push(transformedAnime);
+        tmpAnimes.push(transformedAnime);
 
         addAnime({...transformedAnime, links: links});
 
@@ -4652,6 +4696,8 @@ async function handleRenrenAnimes(animesRenren, queryTitle, curAnimes) {
       }
     })
   );
+
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
 
   return processRenrenAnimes;
 }
@@ -4662,6 +4708,8 @@ async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
   function getCategory(key) {
     return cateMap[key] || "其他";
   }
+
+  const tmpAnimes = [];
 
   // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
   const processHanjutvAnimes = await Promise.all(animesHanjutv
@@ -4693,7 +4741,7 @@ async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
           isFavorited: true,
         };
 
-        curAnimes.push(transformedAnime);
+        tmpAnimes.push(transformedAnime);
 
         addAnime({...transformedAnime, links: links});
 
@@ -4702,10 +4750,14 @@ async function handleHanjutvAnimes(animesHanjutv, queryTitle, curAnimes) {
     })
   );
 
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+
   return processHanjutvAnimes;
 }
 
 async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
+  const tmpAnimes = [];
+
   // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
   const processBahamutAnimes = await Promise.all(animesBahamut
     .filter(s => s.title.includes(queryTitle))
@@ -4737,7 +4789,7 @@ async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
           isFavorited: true,
         };
 
-        curAnimes.push(transformedAnime);
+        tmpAnimes.push(transformedAnime);
 
         addAnime({...transformedAnime, links: links});
 
@@ -4746,10 +4798,14 @@ async function handleBahamutAnimes(animesBahamut, queryTitle, curAnimes) {
     })
   );
 
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
+
   return processBahamutAnimes;
 }
 
 async function handleTencentAnimes(animesTencent, queryTitle, curAnimes) {
+  const tmpAnimes = [];
+
   // 使用 map 和 async 时需要返回 Promise 数组，并等待所有 Promise 完成
   const processTencentAnimes = await Promise.all(animesTencent
     .filter(s => s.title.includes(queryTitle))
@@ -4785,7 +4841,7 @@ async function handleTencentAnimes(animesTencent, queryTitle, curAnimes) {
           isFavorited: true,
         };
 
-        curAnimes.push(transformedAnime);
+        tmpAnimes.push(transformedAnime);
 
         addAnime({...transformedAnime, links: links});
 
@@ -4793,6 +4849,8 @@ async function handleTencentAnimes(animesTencent, queryTitle, curAnimes) {
       }
     })
   );
+
+  sortAndPushAnimesByYear(tmpAnimes, curAnimes);
 
   return processTencentAnimes;
 }
