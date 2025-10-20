@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.4.3";
+const VERSION = "1.4.4";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -109,6 +109,15 @@ function resolveVodReturnMode(env) {
   }
 
   return mode;
+}
+
+const DEFAULT_VOD_REQUEST_TIMEOUT = "5000"; // 默认 第三方弹幕服务器
+let vodRequestTimeout = DEFAULT_VOD_REQUEST_TIMEOUT;
+
+function resolveVodRequestTimeout(env) {
+  if (env && env.VOD_REQUEST_TIMEOUT) return env.VOD_REQUEST_TIMEOUT;         // Cloudflare Workers
+  if (typeof process !== "undefined" && process.env?.VOD_REQUEST_TIMEOUT) return process.env.VOD_REQUEST_TIMEOUT; // Vercel / Node
+  return DEFAULT_VOD_REQUEST_TIMEOUT;
 }
 
 const DEFAULT_BILIBILI_COOKIE = ""; // 默认 bilibili cookie
@@ -732,7 +741,7 @@ async function httpGet(url, options) {
   log("info", `[iOS模拟] HTTP GET: ${url}`);
 
   // 设置超时时间（默认5秒）
-  const timeout = parseInt(process.env.VOD_REQUEST_TIMEOUT || '5000');
+  const timeout = parseInt(vodRequestTimeout);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -2916,7 +2925,7 @@ async function resolveB23Link(shortUrl) {
     log("info", `正在解析 b23.tv 短链接: ${shortUrl}`);
 
     // 设置超时时间（默认5秒）
-    const timeout = parseInt(process.env.VOD_REQUEST_TIMEOUT || '5000');
+    const timeout = parseInt(vodRequestTimeout);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -4485,96 +4494,96 @@ async function getTmdbJaOriginalTitle(title) {
 // bahamut视频弹幕
 // ---------------------
 async function bahamutSearch(keyword) {
-  try {
+  try {
     // 在函数内部进行简转繁
     const traditionalizedKeyword = traditionalized(keyword);
 
     // TMDB 搜索直接使用传入的原始 keyword
-    const tmdbSearchKeyword = keyword;
+    const tmdbSearchKeyword = keyword;
 
-    // 使用 traditionalizedKeyword 进行巴哈姆特搜索
+    // 使用 traditionalizedKeyword 进行巴哈姆特搜索
 	const encodedKeyword = encodeURIComponent(traditionalizedKeyword);
-    const url = proxyUrl
-      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`
-      : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`;
+    const url = proxyUrl
+      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`
+      : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`;
     
     log("info", `[Bahamut] 传入原始搜索词: ${keyword}`);
-    log("info", `[Bahamut] 使用巴哈搜索词: ${traditionalizedKeyword}`);
+    log("info", `[Bahamut] 使用巴哈搜索词: ${traditionalizedKeyword}`);
 
-    const originalResp = await httpGet(url, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
-      },
-    });
+    const originalResp = await httpGet(url, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
+      },
+    });
 
-    // 如果原始搜索有结果，直接返回（并在结果上标注实际用于搜索的字符串）
-    if (
-      originalResp &&
-      originalResp.data &&
-      originalResp.data.anime &&
-      originalResp.data.anime.length > 0
-    ) {
-      const anime = originalResp.data.anime;
-      // 实际用于 bahamut 搜索的关键字（用于后续匹配参考）
-      for (const a of anime) {
-        try {
-          a._originalQuery = keyword;
-          a._searchUsedTitle = traditionalizedKeyword;
-        } catch (e) {}
-      }
-      log("info", `bahamutSearchresp (original): ${JSON.stringify(anime)}`);
-      log("info", `[Bahamut] 返回 ${anime.length} 条结果 (source: original)`);
-      return anime;
-    }
+    // 如果原始搜索有结果，直接返回（并在结果上标注实际用于搜索的字符串）
+    if (
+      originalResp &&
+      originalResp.data &&
+      originalResp.data.anime &&
+      originalResp.data.anime.length > 0
+    ) {
+      const anime = originalResp.data.anime;
+      // 实际用于 bahamut 搜索的关键字（用于后续匹配参考）
+      for (const a of anime) {
+        try {
+          a._originalQuery = keyword;
+          a._searchUsedTitle = traditionalizedKeyword;
+        } catch (e) {}
+      }
+      log("info", `bahamutSearchresp (original): ${JSON.stringify(anime)}`);
+      log("info", `[Bahamut] 返回 ${anime.length} 条结果 (source: original)`);
+      return anime;
+    }
 
-    // 原始搜索没有结果时，才调用 TMDB 转换（顺序执行）
-    log("info", "[Bahamut] 原始搜索未返回结果，尝试转换TMDB标题...");
-    const tmdbTitle = await getTmdbJaOriginalTitle(tmdbSearchKeyword);  // 使用原始 keyword (tmdbSearchKeyword)
+    // 原始搜索没有结果时，才调用 TMDB 转换（顺序执行）
+    log("info", "[Bahamut] 原始搜索未返回结果，尝试转换TMDB标题...");
+    const tmdbTitle = await getTmdbJaOriginalTitle(tmdbSearchKeyword);  // 使用原始 keyword (tmdbSearchKeyword)
 
-    if (!tmdbTitle) {
-      log("info", "[Bahamut] TMDB转换未返回标题，中止搜索并转入备用方案.");
-      return [];
-    }
+    if (!tmdbTitle) {
+      log("info", "[Bahamut] TMDB转换未返回标题，中止搜索并转入备用方案.");
+      return [];
+    }
 
-    log("info", `[Bahamut] 使用TMDB标题进行搜索: ${tmdbTitle}`);
+    log("info", `[Bahamut] 使用TMDB标题进行搜索: ${tmdbTitle}`);
     // 确保 TMDB 标题也被编码
     const encodedTmdbTitle = encodeURIComponent(tmdbTitle); 
-    const tmdbSearchUrl = proxyUrl
-      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`
-      : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`;
-    const tmdbResp = await httpGet(tmdbSearchUrl, {
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
-      },
-    });
+    const tmdbSearchUrl = proxyUrl
+      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`
+      : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`;
+    const tmdbResp = await httpGet(tmdbSearchUrl, {
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "Anime/2.29.2 (7N5749MM3F.tw.com.gamer.anime; build:972; iOS 26.0.0) Alamofire/5.6.4",
+      },
+    });
 
-    if (tmdbResp && tmdbResp.data && tmdbResp.data.anime && tmdbResp.data.anime.length > 0) {
-      const anime = tmdbResp.data.anime;
-      // 保留 original query 与 实际用于 bahamut 搜索的标题（TMDB 的标题）
-      for (const a of anime) {
-        try {
-          a._originalQuery = keyword;
-          a._searchUsedTitle = tmdbTitle;
-        } catch (e) {}
-      }
-      log("info", `bahamutSearchresp (TMDB): ${JSON.stringify(anime)}`);
-      log("info", `[Bahamut] 返回 ${anime.length} 条结果 (source: tmdb)`);
-      return anime;
-    }
+    if (tmdbResp && tmdbResp.data && tmdbResp.data.anime && tmdbResp.data.anime.length > 0) {
+      const anime = tmdbResp.data.anime;
+      // 保留 original query 与 实际用于 bahamut 搜索的标题（TMDB 的标题）
+      for (const a of anime) {
+        try {
+          a._originalQuery = keyword;
+          a._searchUsedTitle = tmdbTitle;
+        } catch (e) {}
+      }
+      log("info", `bahamutSearchresp (TMDB): ${JSON.stringify(anime)}`);
+      log("info", `[Bahamut] 返回 ${anime.length} 条结果 (source: tmdb)`);
+      return anime;
+    }
 
-    log("info", "[Bahamut] 原始搜索和基于TMDB的搜索均未返回任何结果");
-    return [];
-  } catch (error) {
-    // 捕获请求中的错误
-    log("error", "getBahamutAnimes error:", {
-      message: error.message,
-      name: error.name,
-      stack: error.stack,
-    });
-    return [];
-  }
+    log("info", "[Bahamut] 原始搜索和基于TMDB的搜索均未返回任何结果");
+    return [];
+  } catch (error) {
+    // 捕获请求中的错误
+    log("error", "getBahamutAnimes error:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    });
+    return [];
+  }
 }
 
 
@@ -6066,6 +6075,8 @@ async function handleRequest(req, env, deployPlatform, clientIp) {
   envs["vodServers"] = vodServers.map(s => `${s.name}@${s.url}`).join(',');
   vodReturnMode = resolveVodReturnMode(env);
   envs["vodReturnMode"] = vodReturnMode;
+  vodRequestTimeout = resolveVodRequestTimeout(env);
+  envs["vodRequestTimeout"] = vodRequestTimeout;
   bilibliCookie = resolveBilibiliCookie(env);
   envs["bilibliCookie"] = encryptStr(bilibliCookie);
   youkuConcurrency = resolveYoukuConcurrency(env);
