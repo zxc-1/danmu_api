@@ -48,7 +48,7 @@ LogVar 弹幕 API 服务器
   - 弹幕缓存（可通过 `COMMENT_CACHE_MINUTES` 配置，默认5分钟）
   - 用户偏好记录（可通过 `MAX_LAST_SELECT_MAP` 配置，默认100条）
   - Redis 分布式缓存支持（可选）
-- **部署支持**：支持本地运行、Docker 容器化、Vercel 一键部署、Netlify 一键部署、Cloudflare 一键部署和 Docker 一键启动。
+- **部署支持**：支持本地运行、Docker 容器化、Vercel 一键部署、Netlify 一键部署、Edgeone 一键部署、Cloudflare 一键部署、Claw部署和 Docker 一键启动。
 - **手动选择记忆**：支持记住之前搜索title时手动选择的anime，并在后续的match自动匹配时优选该anime【实验性】。
 - **手动搜索支持输入播放链接获取弹幕**：支持手动搜索的播放器输入爱优腾芒哔播放链接可获取弹幕，如`senplayer`。
 - **弹幕转换功能**：支持通过环境变量配置弹幕转换规则，包括：

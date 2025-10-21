@@ -1,6 +1,6 @@
 // 全局状态（Cloudflare 和 Vercel 都可能重用实例）
 // ⚠️ 不是持久化存储，每次冷启动会丢失
-const VERSION = "1.4.4";
+const VERSION = "1.4.5";
 let animes = [];
 let episodeIds = [];
 let episodeNum = 10001; // 全局变量，用于自增 ID
@@ -4514,7 +4514,7 @@ async function bahamutSearch(keyword) {
     // 使用 traditionalizedKeyword 进行巴哈姆特搜索
 	const encodedKeyword = encodeURIComponent(traditionalizedKeyword);
     const url = proxyUrl
-      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`
+      ? `http://127.0.0.1:5321/proxy?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`
       : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedKeyword}`;
     
     log("info", `[Bahamut] 传入原始搜索词: ${keyword}`);
@@ -4560,7 +4560,7 @@ async function bahamutSearch(keyword) {
     // 确保 TMDB 标题也被编码
     const encodedTmdbTitle = encodeURIComponent(tmdbTitle); 
     const tmdbSearchUrl = proxyUrl
-      ? `${proxyUrl}?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`
+      ? `http://127.0.0.1:5321/proxy?url=https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`
       : `https://api.gamer.com.tw/mobile_app/anime/v1/search.php?kw=${encodedTmdbTitle}`;
     const tmdbResp = await httpGet(tmdbSearchUrl, {
       headers: {
