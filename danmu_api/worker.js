@@ -4669,9 +4669,9 @@ function formatBahamutComments(items) {
   const positionToMode = { 0: 1, 1: 5, 2: 4 };
   return items.map(c => ({
     cid: Number(c.sn),
-    p: `${c.time.toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
+    p: `${Math.round(c.time / 10).toFixed(2)},${positionToMode[c.position] || c.tp},${parseInt(c.color.slice(1), 16)},[bahamut]`,
     m: simplized(c.text),
-    t: c.time
+    t: Math.round(c.time / 10)
   }));
 }
 
