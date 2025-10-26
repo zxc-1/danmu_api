@@ -414,9 +414,23 @@ export async function matchAnime(url, req) {
     const regex = /^(.+?)[.\s]+S(\d+)E(\d+)/i;
     const match = cleanFileName.match(regex);
 
-    let title = match ? match[1].trim() : cleanFileName;
-    let season = match ? parseInt(match[2]) : null;
-    let episode = match ? parseInt(match[3]) : null;
+    let title, season, episode;
+
+    if (match) {
+      // 匹配到 S##E## 格式
+      title = match[1].trim();
+      season = parseInt(match[2]);
+      episode = parseInt(match[3]);
+    } else {
+      // 没有 S##E## 格式，尝试提取第一个片段作为标题
+      // 匹配第一个中文/英文标题部分（在年份、分辨率等技术信息之前）
+      const titleRegex = /^([^.\s]+(?:[.\s][^.\s]+)*?)(?:[.\s](?:\d{4}|(?:19|20)\d{2}|\d{3,4}p|S\d+|E\d+|WEB|BluRay|Blu-ray|HDTV|DVDRip|BDRip|x264|x265|H\.?264|H\.?265|AAC|AC3|DDP|TrueHD|DTS|10bit|HDR|60FPS))/i;
+      const titleMatch = cleanFileName.match(titleRegex);
+
+      title = titleMatch ? titleMatch[1].replace(/[._]/g, ' ').trim() : cleanFileName;
+      season = null;
+      episode = null;
+    }
 
     log("info", "Parsed title, season, episode", { title, season, episode });
 

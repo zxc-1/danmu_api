@@ -462,6 +462,8 @@ danmu_api/
 
 [喂饭教程2：logvar弹幕搭建教程（docker/claw）](https://blog.tencentx.de/p/logvar%E5%BC%B9%E5%B9%95%E6%90%AD%E5%BB%BA%E6%95%99%E7%A8%8B%E5%96%82%E9%A5%AD%E7%89%88/)
 
+[喂饭教程3：使用Netlify反向代理巴哈姆特api，实现danmu_api项目国内直连获取巴哈姆特弹幕](https://github.com/wan0ge/bahamut-api-proxy)
+
 ### 部署完成后在播放器填写后弹幕未生效自主排查步骤
 以API示例 `http://192.168.1.7:9321/87654321` 为例
 1. 首先确认你的api部署成功 访问 `http://192.168.1.7:9321/87654321` 有json输出
