@@ -8,7 +8,7 @@ export class Envs {
 
   static VOD_ALLOWED_PLATFORMS = ['qiyi', 'bilibili1', 'imgo', 'youku', 'qq']; // vod允许的播放平台
   static ALLOWED_PLATFORMS = ['qiyi', 'bilibili1', 'imgo', 'youku', 'qq', 'renren', 'hanjutv', 'bahamut']; // 全部源允许的播放平台
-  static ALLOWED_SOURCES = ['360', 'vod', 'tencent', 'renren', 'hanjutv', 'bahamut']; // 允许的源
+  static ALLOWED_SOURCES = ['360', 'vod', 'tencent', 'youku', 'iqiyi', 'imgo', 'bilibili', 'renren', 'hanjutv', 'bahamut']; // 允许的源
 
   /**
    * 获取环境变量
@@ -188,7 +188,7 @@ export class Envs {
       otherServer: this.get('OTHER_SERVER', 'https://api.danmu.icu', 'string'), // 第三方弹幕服务器
       vodServers: this.resolveVodServers(env), // vod站点配置，格式：名称@URL,名称@URL
       vodReturnMode: this.get('VOD_RETURN_MODE', 'fastest', 'string').toLowerCase(), // vod返回模式：all（所有站点）或 fastest（最快的站点）
-      vodRequestTimeout: this.get('VOD_REQUEST_TIMEOUT', '5000', 'string'), // vod超时时间
+      vodRequestTimeout: this.get('VOD_REQUEST_TIMEOUT', '10000', 'string'), // vod超时时间（默认10秒）
       bilibliCookie: this.get('BILIBILI_COOKIE', '', 'string', true), // b站cookie
       youkuConcurrency: Math.min(this.get('YOUKU_CONCURRENCY', 8, 'number'), 16), // 优酷并发配置
       sourceOrderArr: this.resolveSourceOrder(env, deployPlatform), // 源排序
@@ -207,7 +207,8 @@ export class Envs {
       commentCacheMinutes: this.get('COMMENT_CACHE_MINUTES', 1, 'number'), // 弹幕缓存时间配置（分钟，默认 1）
       convertTopBottomToScroll: this.get('CONVERT_TOP_BOTTOM_TO_SCROLL', false, 'boolean'), // 顶部/底部弹幕转换为浮动弹幕配置（默认 false，禁用转换）
       convertColorToWhite: this.get('CONVERT_COLOR_TO_WHITE', false, 'boolean'), // 彩色弹幕转换为纯白弹幕配置（默认 false，禁用转换）
-      danmuOutputFormat: this.get('DANMU_OUTPUT_FORMAT', 'json', 'string') // 弹幕输出格式配置（默认 json，可选值：json, xml）
+      danmuOutputFormat: this.get('DANMU_OUTPUT_FORMAT', 'json', 'string'), // 弹幕输出格式配置（默认 json，可选值：json, xml）
+      strictTitleMatch: this.get('STRICT_TITLE_MATCH', false, 'boolean') // 严格标题匹配模式配置（默认 false，宽松模糊匹配）
     };
   }
 }
