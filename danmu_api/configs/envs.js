@@ -38,7 +38,7 @@ export class Envs {
         }
         break;
       case 'boolean':
-        parsedValue = value === 'true' || value === '1';
+        parsedValue = value === true || value === 'true'|| value === 1 || value === '1';
         break;
       case 'string':
       default:
