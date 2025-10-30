@@ -54,6 +54,8 @@ export default class DoubanSource extends BaseSource {
   async getEpisodes(id) {}
 
   async handleAnimes(sourceAnimes, queryTitle, curAnimes, vodName) {
+    const doubanAnimes = [];
+
     const processDoubanAnimes = await Promise.all(sourceAnimes.map(async (anime) => {
       const doubanId = anime.target_id;
       log("info", "doubanId: ", doubanId);
@@ -89,7 +91,7 @@ export default class DoubanSource extends BaseSource {
             if (cid) {
               tmpAnimes[0].provider = "tencent";
               tmpAnimes[0].mediaId = cid;
-              await this.tencentSource.handleAnimes(tmpAnimes, queryTitle, curAnimes)
+              await this.tencentSource.handleAnimes(tmpAnimes, queryTitle, doubanAnimes)
             }
             break;
           }
@@ -98,7 +100,7 @@ export default class DoubanSource extends BaseSource {
             if (tvid) {
               tmpAnimes[0].provider = "iqiyi";
               tmpAnimes[0].mediaId = anime?.type_name === '电影' ? `movie_${tvid}` : tvid;
-              await this.iqiyiSource.handleAnimes(tmpAnimes, queryTitle, curAnimes)
+              await this.iqiyiSource.handleAnimes(tmpAnimes, queryTitle, doubanAnimes)
             }
             break;
           }
@@ -107,7 +109,7 @@ export default class DoubanSource extends BaseSource {
             if (showId) {
               tmpAnimes[0].provider = "youku";
               tmpAnimes[0].mediaId = showId;
-              await this.youkuSource.handleAnimes(tmpAnimes, queryTitle, curAnimes)
+              await this.youkuSource.handleAnimes(tmpAnimes, queryTitle, doubanAnimes)
             }
             break;
           }
@@ -116,7 +118,7 @@ export default class DoubanSource extends BaseSource {
             if (seasonId) {
               tmpAnimes[0].provider = "bilibili";
               tmpAnimes[0].mediaId = `ss${seasonId}`;
-              await this.bilibiliSource.handleAnimes(tmpAnimes, queryTitle, curAnimes)
+              await this.bilibiliSource.handleAnimes(tmpAnimes, queryTitle, doubanAnimes)
             }
             break;
           }
@@ -125,6 +127,7 @@ export default class DoubanSource extends BaseSource {
       return results;
     }));
 
+    this.sortAndPushAnimesByYear(doubanAnimes, curAnimes);
     return processDoubanAnimes;
   }
 
