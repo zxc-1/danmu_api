@@ -30,7 +30,7 @@ LogVar 弹幕 API 服务器
 ## 功能
 - **API 接口**：
   - `GET /api/v2/search/anime?keyword=${queryTitle}`：根据关键字搜索动漫。
-  - `POST /api/v2/match`：根据关键字匹配动漫，用于自动匹配。（已支持在match接口中通过@语法动态指定平台优先级，如`赴山海 S01E28 @qiyi`；已支持从网盘资源命名，如`无忧渡.S01E01.2160p.WEB-DL.H265.DDP.5.1`中提取 title/season/episode）
+  - `POST /api/v2/match`：根据关键字匹配动漫，用于自动匹配。（已支持在match接口中通过@语法动态指定平台优先级，如`赴山海 S01E28 @qiyi`；已支持从网盘资源命名，如`无忧渡.S01E01.2160p.WEB-DL.H265.DDP.5.1`中提取 title/season/episode）；已支持外语标题匹配，如`Blood.River.S01E05`，需配置环境变量使用
   - `GET /api/v2/search/episodes`：根据关键词搜索所有匹配的剧集信息。
   - `GET /api/v2/bangumi/:animeId`：获取指定动漫的详细信息。
   - `GET /api/v2/comment/:commentId?format=json`：获取指定弹幕评论，支持返回相关评论和字符转换。
@@ -334,6 +334,7 @@ API 支持返回 Bilibili 标准 XML 格式的弹幕数据，通过查询参数 
 | EPISODE_TITLE_FILTER    | 【可选】剧集标题正则过滤，按正则关键字对剧集或综艺的集标题进行过滤，适用于过滤一些预告或综艺非正式集，只支持match自动匹配，默认值如下 |
 | ENABLE_EPISODE_FILTER    | 【可选】是否在手动选择接口中启用集标题过滤，默认为`false`（禁用），启用后 GET /api/v2/bangumi/{id} 和 GET /api/v2/search/anime 接口会过滤掉预告、花絮等特殊集，以及名称包含特殊关键词的动漫。       |
 | STRICT_TITLE_MATCH    | 【可选】是否启用严格标题匹配模式，默认为`false`（宽松模糊匹配），启用后只匹配标题开头或完全匹配的结果。例如：搜索"遮天"时，`false`会匹配"古惑仔3之只手遮天"，`true`只匹配"遮天"、"遮天 第一季"等。可选值：`true`、`false`       |
+| TITLE_TO_CHINESE    | 【可选】是否在match自动匹配时将外语标题转换成中文标题，适用于网盘没有刮削的资源，默认值：false（不转换），说明：需配合TMDB_API_KEY使用       |
 | BLOCKED_WORDS    | 【可选】弹幕屏蔽词列表，默认为空，示例如下       |
 | GROUP_MINUTE    | 【可选】合并去重分钟数，表示按n分钟分组后对弹幕合并去重，默认为1，最大值为30，0表示不去重       |
 | DANMU_LIMIT    | 【可选】等间隔采样限制弹幕总数，单位为k，即千：默认 0，表示不限制弹幕数，若改为5，弹幕总数在超过5000的情况下会将弹幕数控制在5000       |

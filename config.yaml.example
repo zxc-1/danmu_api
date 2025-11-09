@@ -159,6 +159,12 @@ ENABLE_EPISODE_FILTER: false
 # 可选值：true, false
 STRICT_TITLE_MATCH: false
 
+# 是否在match自动匹配时将外语标题转换成中文标题，适用于网盘没有刮削的资源
+# 默认值：false（不转换）
+# 说明：需配合TMDB_API_KEY使用
+# 可选值：true, false
+# TITLE_TO_CHINESE=false
+
 # ==================== 代理配置 ====================
 
 # 代理/反代地址（用于访问受限资源）
