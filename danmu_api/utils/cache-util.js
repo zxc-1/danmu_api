@@ -309,9 +309,19 @@ export function cleanupExpiredIPs(currentTime) {
   }
 }
 
+// 获取当前文件目录的兼容方式
+function getDirname() {
+  if (typeof __dirname !== 'undefined') {
+    // CommonJS 环境 (Vercel 编译后)
+    return __dirname;
+  }
+  // ES Module 环境
+  return path.dirname(fileURLToPath(import.meta.url));
+}
+
 // 从本地缓存目录读取缓存数据
 export function readCacheFromFile(key) {
-  const cacheFilePath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '.cache', `${key}`);
+  const cacheFilePath = path.join(getDirname(), '..', '..', '.cache', `${key}`);
   if (fs.existsSync(cacheFilePath)) {
     const fileContent = fs.readFileSync(cacheFilePath, 'utf8');
     return JSON.parse(fileContent);
@@ -321,7 +331,7 @@ export function readCacheFromFile(key) {
 
 // 将缓存数据写入本地缓存文件
 export function writeCacheToFile(key, value) {
-  const cacheFilePath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '.cache', `${key}`);
+  const cacheFilePath = path.join(getDirname(), '..', '..', '.cache', `${key}`);
   fs.writeFileSync(cacheFilePath, JSON.stringify(value), 'utf8');
 }
 
@@ -396,16 +406,6 @@ export async function updateLocalCaches() {
     log("error", `updateLocalCaches failed: ${error.message}`, error.stack);
     log("error", `Error details - Name: ${error.name}, Cause: ${error.cause ? error.cause.message : 'N/A'}`);
   }
-}
-
-// 获取当前文件目录的兼容方式
-function getDirname() {
-  if (typeof __dirname !== 'undefined') {
-    // CommonJS 环境 (Vercel 编译后)
-    return __dirname;
-  }
-  // ES Module 环境
-  return path.dirname(fileURLToPath(import.meta.url));
 }
 
 // 判断是否有效的本地缓存目录
