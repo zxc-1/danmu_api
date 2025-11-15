@@ -4,7 +4,6 @@ import { Anime } from "../models/dandan-model.js";
 import { simpleHash } from "./codec-util.js";
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 // =====================
 // cache数据结构处理函数
