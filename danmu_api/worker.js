@@ -16,7 +16,9 @@ async function handleRequest(req, env, deployPlatform, clientIp) {
   let path = url.pathname;
   const method = req.method;
 
-  judgeLocalCacheValid(path),
+  if (deployPlatform === "node") {
+    judgeLocalCacheValid(path);
+  }
   await judgeRedisValid(path);
 
   log("info", `request url: ${JSON.stringify(url)}`);
