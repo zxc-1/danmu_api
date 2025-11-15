@@ -398,10 +398,20 @@ export async function updateLocalCaches() {
   }
 }
 
+// 获取当前文件目录的兼容方式
+function getDirname() {
+  if (typeof __dirname !== 'undefined') {
+    // CommonJS 环境 (Vercel 编译后)
+    return __dirname;
+  }
+  // ES Module 环境
+  return path.dirname(fileURLToPath(import.meta.url));
+}
+
 // 判断是否有效的本地缓存目录
 export function judgeLocalCacheValid(urlPath) {
   if (!globals.localCacheValid && urlPath !== "/favicon.ico" && urlPath !== "/robots.txt") {
-    const cacheDirPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '.cache');
+    const cacheDirPath = path.join(getDirname(), '..', '..', '.cache');
 
     if (fs.existsSync(cacheDirPath)) {
       globals.localCacheValid = true;
