@@ -150,7 +150,7 @@ export function handleDanmusLike(groupedDanmus) {
 
     // 确定阈值：特定源中>=100用🔥，其他>=1000用🔥
     const threshold = isLowThresholdSource ? 100 : 1000;
-    const icon = item.like >= threshold ? ' 🔥' : '️♡';
+    const icon = item.like >= threshold ? '🔥' : '️♡';
 
     // 格式化点赞数，缩写显示
     // let formattedLike;
