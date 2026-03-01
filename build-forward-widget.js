@@ -45,6 +45,7 @@ let customPolyfillContent = fs.readFileSync('forward/custom-polyfill.js', 'utf8'
       target: 'es2020',
       outfile: 'dist/logvar-danmu.js',
       format: 'esm', // 保持ES模块格式
+      external: ['redis'], // 将redis标记为外部依赖
       plugins: [
         // 插件：排除UI相关模块
         {
