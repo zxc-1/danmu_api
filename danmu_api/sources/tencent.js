@@ -157,6 +157,31 @@ export default class TencentSource extends BaseSource {
         itemList = data.data.normalList.itemList;
       }
 
+      // 追加「相关影视」box 中 title 包含 keyword 的 itemList
+      if (data.data && data.data.areaBoxList) {
+        for (const box of data.data.areaBoxList) {
+          if (
+            box.itemList &&
+            box.boxTitle &&
+            Array.isArray(box.boxTitle.boxTitles) &&
+            box.boxTitle.boxTitles.includes("相关影视")
+          ) {
+            const relatedItems = box.itemList.filter(item =>
+              item.videoInfo &&
+              item.videoInfo.title &&
+              item.videoInfo.title.includes(keyword)
+            );
+            if (relatedItems.length > 0) {
+              log("info", `[Tencent] 追加「相关影视」box 中匹配 "${keyword}" 的 ${relatedItems.length} 个项目`);
+              itemList = [...itemList, ...relatedItems];
+            } else {
+              log("info", `[Tencent] 「相关影视」box 中无匹配 "${keyword}" 的项目`);
+            }
+            break;
+          }
+        }
+      }
+
       if (itemList.length === 0) {
         log("info", "[Tencent] 搜索无结果");
         return [];
