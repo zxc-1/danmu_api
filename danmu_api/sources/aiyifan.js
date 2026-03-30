@@ -72,16 +72,7 @@ export default class AiyifanSource extends BaseSource {
       const urlWithParams = updateQueryString(this.SEARCH_API, params);
       const response = await httpGet(globals.makeProxyUrl(urlWithParams), { headers });
       
-      if (response.status !== 200) {
-        log("error", `[搜索失败] HTTP ${response.status}: ${response.data?.slice(0, 200) || response.statusText}`);
-        return null;
-      }
-
       const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
-      if (data.ret !== 200) {
-        log("error", `[搜索失败] 返回码: ${data.ret}, msg: ${data.msg}`);
-        return null;
-      }
       return data;
     } catch (error) {
       log("error", `[搜索失败] 错误: ${error.message}`);
@@ -160,16 +151,7 @@ export default class AiyifanSource extends BaseSource {
       const urlWithParams = updateQueryString(this.PLAYLIST_API, params);
       const response = await httpGet(globals.makeProxyUrl(urlWithParams), { headers });
 
-      if (response.status !== 200) {
-        log("error", `[播放列表失败] HTTP ${response.status}: ${response.data?.slice(0, 200) || response.statusText}`);
-        return [];
-      }
-
       const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
-      if (data.ret !== 200) {
-        log("error", `[播放列表失败] 返回码: ${data.ret}, msg: ${data.msg}`);
-        return [];
-      }
 
       const episodes = [];
       const infoList = data.data?.info || [];
@@ -226,16 +208,7 @@ export default class AiyifanSource extends BaseSource {
       const urlWithParams = updateQueryString(this.VIDEO_API, params);
       const response = await httpGet(globals.makeProxyUrl(urlWithParams), { headers });
 
-      if (response.status !== 200) {
-        log("error", `[视频信息失败] HTTP ${response.status}: ${response.data?.slice(0, 200) || response.statusText}`);
-        return null;
-      }
-
       const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
-      if (data.ret !== 200) {
-        log("error", `[视频信息失败] 返回码: ${data.ret}, msg: ${data.msg}`);
-        return null;
-      }
       return data.data || {};
     } catch (error) {
       log("error", `[视频信息失败] 错误: ${error.message}`);
@@ -291,16 +264,7 @@ export default class AiyifanSource extends BaseSource {
       const urlWithParams = updateQueryString(this.DANMU_API, params);
       const response = await httpGet(globals.makeProxyUrl(urlWithParams), { headers });
 
-      if (response.status !== 200) {
-        log("error", `[弹幕失败] HTTP ${response.status}: ${response.data?.slice(0, 400) || response.statusText}`);
-        return [];
-      }
-
       const data = typeof response.data === "string" ? JSON.parse(response.data) : response.data;
-      if (data.ret !== 200) {
-        log("error", `[弹幕失败] 返回码: ${data.ret}`);
-        return [];
-      }
 
       const danmuList = data.data?.info || [];
       log("info", `[弹幕] 获取到 ${danmuList.length} 条弹幕`);
