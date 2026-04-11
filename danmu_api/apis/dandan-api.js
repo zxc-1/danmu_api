@@ -1496,6 +1496,9 @@ async function fetchMergedComments(url, animeTitle, commentId) {
 
   // 等待所有源请求完成
   const results = await Promise.all(tasks);
+  
+  // 调用以dandan为基准的跨源时间轴对齐函数（仅当存在 dandan 源时执行）
+  alignSourceTimelines(results, sourceNames, realIds);
 
   // 按来源分别应用弹幕时间偏移（对齐后、合并前）
   if (globals.danmuOffsetRules?.length > 0 && animeTitle && commentId) {
