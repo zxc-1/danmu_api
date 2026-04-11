@@ -519,7 +519,7 @@ API 支持返回 Bilibili 标准 XML 格式的弹幕数据，通过查询参数 
 | renren   | renren |
 | hanjutv  | hanjutv |
 | bahamut  | bahamut |
-| dandan   | [弹弹play](https://www.dandanplay.com/) |
+| dandan   | [dandan](https://www.dandanplay.com/) |
 | animeko  | [animeko](https://github.com/open-ani/animeko) |
 | custom   | custom |
 
