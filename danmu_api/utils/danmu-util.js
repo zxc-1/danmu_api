@@ -2,8 +2,7 @@ import { globals } from '../configs/globals.js';
 import { log } from './log-util.js'
 import { binResponse, jsonResponse, xmlResponse } from "./http-util.js";
 import { traditionalized } from './zh-util.js';
-import { UniDB } from "@dan-uni/dan-any/core/main/pure";
-import { ArtplayerMetadata, ArtplayerTransformer, BahaMetadata, BahaTransformer, BiliXmlMetadata, BiliXmlTransformerConfigurator, DanuniJsonMetadata, DanuniJsonTransformerConfigurator, DanuniPbMetadata, DanuniPbTransformer, DdplayAdapter, DdplayMetadata, DdplayTransformer, DplayerMetadata, DplayerTransformer, VodMetadata, VodTransformer } from '@dan-uni/dan-any/adapters';
+import { convertDanAny } from './dan-any.js';
 
 // =====================
 // danmu处理相关函数
@@ -490,9 +489,6 @@ function escapeXmlText(str) {
     .replace(/>/g, '&gt;');
 }
 
-const tmp_da_db = new UniDB()
-const tmp_da_udb = tmp_da_db.init()
-
 // 根据格式参数返回弹幕数据
 export function formatDanmuResponse(danmuData, queryFormat) {
   // 确定最终使用的格式：查询参数 > 环境变量 > 默认值
@@ -513,17 +509,10 @@ export function formatDanmuResponse(danmuData, queryFormat) {
     }
   } else if (format === 'json') return jsonResponse(danmuData);
 
-  // 转换为 @dan-uni/dan-any 支持的格式
-  const chunk = tmp_da_udb.makeChunk({ tmp: true })
-  chunk.import(DdplayAdapter(danmuData))
-  if (format === VodMetadata.type) return jsonResponse(chunk.export(VodTransformer))
-  else if (format === BahaMetadata.type) return jsonResponse(chunk.export(BahaTransformer))
-  else if (format === DdplayMetadata.type) return jsonResponse(chunk.export(DdplayTransformer))
-  else if (format === BiliXmlMetadata.type) return xmlResponse(chunk.export(BiliXmlTransformerConfigurator()))
-  else if (format === DplayerMetadata.type) return jsonResponse(chunk.export(DplayerTransformer))
-  else if (format === DanuniPbMetadata.type) return binResponse(chunk.export(DanuniPbTransformer), 'danuni.binpb')
-  else if (format === ArtplayerMetadata.type) return jsonResponse(chunk.export(ArtplayerTransformer))
-  else if (format === DanuniJsonMetadata.type) return jsonResponse(chunk.export(DanuniJsonTransformerConfigurator()))
+  const converted = convertDanAny(danmuData, format);
+  if (converted?.type === 'json') return jsonResponse(converted.data);
+  if (converted?.type === 'xml') return xmlResponse(converted.data);
+  if (converted?.type === 'binary') return binResponse(converted.data, converted.filename);
 
   // 默认返回 JSON
   return jsonResponse(danmuData);

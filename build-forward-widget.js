@@ -46,6 +46,16 @@ const outputFile = debugBuild ? 'dist/logvar-danmu.debug.js' : 'dist/logvar-danm
 const forwardRuntimeCompatPlugin = {
   name: 'forward-runtime-compat',
   setup(build) {
+    const danAnyModulePath = path.resolve('danmu_api/utils/dan-any.js');
+
+    // Forward only consumes the native JSON/XML response paths. Keep dan-any
+    // available to the server while removing it and its transitive dependencies
+    // from the standalone widget bundle.
+    build.onResolve({ filter: /(?:^|[\\/])dan-any\.js$/ }, (args) => {
+      if (path.resolve(args.resolveDir, args.path) !== danAnyModulePath) return;
+      return { path: 'dan-any', namespace: 'forward-optional-modules' };
+    });
+
     build.onResolve({ filter: /^node:async_hooks$/ }, () => ({
       path: 'async-hooks',
       namespace: 'forward-node-builtins'
@@ -79,6 +89,16 @@ const forwardRuntimeCompatPlugin = {
               this.store = previousStore;
             }
           }
+        }
+      `
+    }));
+
+    build.onLoad({ filter: /^dan-any$/, namespace: 'forward-optional-modules' }, () => ({
+      loader: 'js',
+      contents: `
+        export const danAnyFormats = [];
+        export function convertDanAny() {
+          return null;
         }
       `
     }));
