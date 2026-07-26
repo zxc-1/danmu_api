@@ -135,12 +135,17 @@ const forwardRuntimeCompatPlugin = {
                 outputContent = outputContent.replace(/(?<!function\s)\bhttpGet\s*\(/g, `${httpGetReplacement}(`);
                 outputContent = outputContent.replace(/(?<!function\s)\bhttpPost\s*\(/g, `${httpPostReplacement}(`);
 
-                // 删除本地redis相关
-                outputContent = outputContent.replace(/.*setLocalRedisKey.*\n?/g, '\n');
-                outputContent = outputContent.replace(/.*updateLocalRedisCaches.*\n?/g, '\n');
-
-                // 删除包含 bangumi-data-util.js 关键字的行
-                outputContent = outputContent.replace(/.*bangumi-data-util\.js.*\n?/g, '');
+                // Keep line removal linear even when dependencies contain very
+                // large single-line dictionaries (for example, opencc-js).
+                const excludedLineFragments = [
+                  'setLocalRedisKey',
+                  'updateLocalRedisCaches',
+                  'bangumi-data-util.js'
+                ];
+                outputContent = outputContent
+                  .split(/\r?\n/)
+                  .filter(line => !excludedLineFragments.some(fragment => line.includes(fragment)))
+                  .join('\n');
                 
                 // 保存修改后的内容
                 fs.writeFileSync(outputFile, outputContent);
@@ -162,6 +167,8 @@ const forwardRuntimeCompatPlugin = {
     console.log(`Forward widget ${debugBuild ? 'debug ' : ''}bundle created successfully: ${outputFile}`);
   } catch (error) {
     console.error('Build failed:', error);
-    process.exit(1);
+    process.exitCode = 1;
+  } finally {
+    await esbuild.stop();
   }
 })();
