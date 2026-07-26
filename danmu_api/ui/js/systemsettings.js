@@ -2254,14 +2254,15 @@ function renderEnvList() {
     if (themeSettings) themeSettings.hidden = currentCategory !== 'system';
 
     const items = (envVariables[currentCategory] || [])
-        .filter(item => item.key !== 'UI_THEME');
+        .map((item, originalIndex) => ({ item, originalIndex }))
+        .filter(({ item }) => item.key !== 'UI_THEME');
 
     if (items.length === 0) {
         list.innerHTML = '<p class="text-gray padding-20 text-center">暂无配置项</p>';
         return;
     }
 
-    list.innerHTML = items.map((item, index) => {
+    list.innerHTML = items.map(({ item, originalIndex }) => {
         const typeLabel = item.type === 'boolean' ? '布尔' :
                          item.type === 'number' ? '数字' :
                          item.type === 'select' ? '单选' :
@@ -2279,8 +2280,8 @@ function renderEnvList() {
                     <div class="text-gray font-size-12 margin-top-3">\${item.description || '无描述'}</div>
                 </div>
                 <div class="env-actions">
-                    <button class="btn btn-primary" onclick="editEnv(\${index})">编辑</button>
-                    <button class="btn btn-danger" onclick="deleteEnv(\${index})">删除</button>
+                    <button class="btn btn-primary" onclick="editEnv(\${originalIndex})">编辑</button>
+                    <button class="btn btn-danger" onclick="deleteEnv(\${originalIndex})">删除</button>
                 </div>
             </div>
         \`;
