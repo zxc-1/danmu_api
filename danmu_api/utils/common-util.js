@@ -320,8 +320,9 @@ export function titleMatches(title, query, parsedSeason = null) {
     const titleSeason = getExplicitSeasonNumber(titleText);
 
     if (querySeason > 1) {
-      // 搜索指定续作(>1)时，标题必须明确包含该季度标识
-      if ((titleSeason || 1) !== querySeason) return false;
+      // 搜索指定续作(>1)时，仅当源标题明确包含季号时才校验季号一致性
+      // 源标题无季号的不分季长剧不应被此规则拦截，交由上游源处理器决定
+      if (titleSeason !== null && titleSeason !== querySeason) return false;
     } else if (querySeason === 1) {
       // 搜索第1季时，拦截明确标明为其他季度(如第2季、第3季)的结果
       if (titleSeason !== null && titleSeason !== 1) return false;
@@ -452,8 +453,8 @@ export function extractSeasonNumberFromAnimeTitle(animeTitle) {
 export function extractEpisodeNumberFromTitle(episodeTitle) {
   if (!episodeTitle) return null;
 
-  // 匹配格式：第1集、第01集、第10集等
-  const chineseMatch = episodeTitle.match(/第(\d+)集/);
+  // 匹配格式：第1集、第01集、第1话、第1回等
+  const chineseMatch = episodeTitle.match(/第(\d+)[集话回]/);
   if (chineseMatch) {
     return parseInt(chineseMatch[1], 10);
   }

@@ -252,6 +252,7 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
   }
 
   let allSatisfied = true;
+  let anyPlatformHadData = false;
 
   for (const tPlat of targetPlatforms) {
     let isEpisodeSatisfied = false;
@@ -296,8 +297,9 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
     }
 
     if (!platformHasData) {
-      continue; 
+      continue;
     }
+    anyPlatformHadData = true;
 
     if (!isEpisodeSatisfied) {
       let totalValidEpisodes = 0;
@@ -309,6 +311,11 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
         break;
       }
     }
+  }
+
+  // 优先平台无匹配数据时回退到不区分平台重新检查全部可用数据
+  if (!anyPlatformHadData && targetPlatform) {
+    return checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAnimeDetailsMap, null);
   }
 
   return allSatisfied;
@@ -1220,7 +1227,8 @@ function findCrossSeasonEpisodeMap(searchData, title, year, season, episode, pla
 
     if (absoluteMatch) {
       if (platform && getPlatformMatchScore(extractEpisodeTitle(absoluteMatch.episodeTitle), platform) === 0) {
-          break;
+          currentSeason++;
+          continue;
       }
       log("info", `[system] [spillover] 跨季溢出查找命中 (按绝对标题数字) -> 所在季：S${currentSeason} 集标题：${absoluteMatch.episodeTitle}`);
       bestRes = {
@@ -1234,7 +1242,8 @@ function findCrossSeasonEpisodeMap(searchData, title, year, season, episode, pla
     if (currentTargetEpisode <= allEps.length) {
       const targetEp = allEps[currentTargetEpisode - 1];
       if (platform && getPlatformMatchScore(extractEpisodeTitle(targetEp.episodeTitle), platform) === 0) {
-          break;
+          currentSeason++;
+          continue;
       }
       log("info", `[system] [spillover] 跨季溢出查找命中 (按相对排位计算) -> 所在季：S${currentSeason} 集标题：${targetEp.episodeTitle}`);
       bestRes = {
@@ -1358,6 +1367,14 @@ async function matchAniAndEp(season, episode, year, searchData, title, req, plat
 
         // 匹配集数
         matchedEpisode = findEpisodeByNumber(filteredEpisodes, episode, targetEpisode, platform);
+
+        // 当指定平台与候选动画源不匹配导致过滤后无匹配时，回退到不区分平台提取集数
+        if (!matchedEpisode && platform) {
+            const actualAnimePlatform = extractPlatformFromTitle(anime.animeTitle) || anime.source;
+            if (getPlatformMatchScore(actualAnimePlatform, platform) === 0) {
+                matchedEpisode = findEpisodeByNumber(filteredEpisodes, episode, targetEpisode, null);
+            }
+        }
 
         // 如果当前是用户的优选偏好，但由于平台配置限制导致未命中目标平台，则放宽条件无视平台限制提取集数
         if (!matchedEpisode && isPreferredAnime) {
@@ -1745,6 +1762,9 @@ export async function matchAnime(url, req, clientIp) {
         resAnime = __ret.resAnime;
         // 跨季集数顺延映射的结果不更新 lastSearch，防止无关番剧污染 lastSelectMap 偏好记录
         spilloverMatched = __ret.isSpillover;
+        if (resAnime) {
+          resData["isMatched"] = true;
+        }
       }
     }
 
