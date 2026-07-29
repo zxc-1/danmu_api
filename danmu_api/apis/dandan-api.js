@@ -1291,13 +1291,6 @@ async function matchAniAndEp(season, episode, year, searchData, title, req, plat
 
   // 遍历所有搜索结果，寻找最佳匹配
   for (const anime of searchData.animes) {
-    // 偏好过滤
-    const animeIsNotPrefer = 
-        globals.rememberLastSelect && 
-        preferAnimeId && 
-        String(anime.bangumiId) !== String(preferAnimeId) && 
-        String(anime.animeId) !== String(preferAnimeId);
-    if (animeIsNotPrefer) continue;
 
     let isMatch = false;
 
@@ -1330,7 +1323,8 @@ async function matchAniAndEp(season, episode, year, searchData, title, req, plat
                 // 构造一个虚拟的 anime 对象传入 matchSeason，这样当命中别名时，matchSeason 才能正确判断后缀
                 const tempAnime = { ...anime, animeTitle: candTitle };
                 
-                if (matchSeason(tempAnime, title, season) || animeIsPrefer) {
+                const seasonOk = matchSeason(tempAnime, title, season);
+                if (seasonOk || animeIsPrefer) {
                     isMatch = true;
                     break; // 别名命中跳出
                 }
@@ -1449,8 +1443,8 @@ async function matchAniAndEp(season, episode, year, searchData, title, req, plat
             };
         }
 
-        // 如果没有指定平台偏好 (platform 为空) 或已命中最高优先级的手动优选，立刻跳出查找
-        if (!platform || isPreferredAnime) {
+        // 已命中最高优先级的手动优选，或不存在平台偏好且无待匹配的优选条目时立刻跳出查找
+        if (isPreferredAnime || (!platform && !preferAnimeId)) {
             break; 
         }
         
@@ -2400,11 +2394,12 @@ export async function getComment(path, queryFormat, segmentFlag, clientIp, inclu
       }
     }
 
-    log("info", `[system] [LogVar-API] animeTitle：${animeTitle}; lastTitle：${lastTitle}; titleMatches：${titleMatches(animeTitle, lastTitle)}`);
+    log("info", `[system] [LogVar-API] animeTitle：${animeTitle}; lastTitle：${lastTitle}; titleMatches：${titleMatches(animeTitle, lastTitle, null, true)}`);
 
     // 校验番剧标题或别名是否匹配最新搜索/匹配上下文，别名检查用于兼容不同源对同一番剧的标题命名差异
-    const titleOrAliasMatches = titleMatches(animeTitle, lastTitle) ||
-        (Array.isArray(animeAliases) && animeAliases.some(alias => titleMatches(alias, lastTitle)));
+    // 偏好记录使用非严格匹配（forceNonStrict=true），因为用户手动选择不应受严格标题匹配限制
+    const titleOrAliasMatches = titleMatches(animeTitle, lastTitle, null, true) ||
+        (Array.isArray(animeAliases) && animeAliases.some(alias => titleMatches(alias, lastTitle, null, true)));
 
     if (titleOrAliasMatches) {
       log("info", `[system] [LogVar-API] excute setPreferByAnimeId`);
