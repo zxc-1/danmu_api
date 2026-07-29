@@ -303,8 +303,11 @@ function checkEpisodeSatisfied(animesList, querySeason, queryEpisode, requestAni
 
     if (!isEpisodeSatisfied) {
       let totalValidEpisodes = 0;
-      for (const capacity of seasonCapacities.values()) {
-        totalValidEpisodes += capacity;
+      for (const [sNum, capacity] of seasonCapacities) {
+        // 仅累加不超过查询季号的容量，防止跳跃季（如别名指示S3但S2缺失）导致虚高
+        if (sNum <= querySeason) {
+          totalValidEpisodes += capacity;
+        }
       }
       if (totalValidEpisodes < queryEpisode) {
         allSatisfied = false;
@@ -805,7 +808,10 @@ export async function searchAnime(url, preferAnimeId = null, preferSource = null
             const list = (item && Array.isArray(item.list)) ? item.list : [item];
             for (const a of list) {
               if (!a) continue;
-              const s = extractSeasonNumberFromAnimeTitle(a.animeTitle || a.title || "").season;
+              // 仅从与查询相关的条目中提取季号，避免无关源的搜索结果污染 maxSeason
+              const testTitle = a.animeTitle || a.title || a.name || a.name_cn || "";
+              if (testTitle && !titleMatches(testTitle, queryTitle, null, true)) continue;
+              const s = extractSeasonNumberFromAnimeTitle(testTitle).season;
               if (s !== null && s > maxSeason) maxSeason = s;
             }
           }
@@ -923,7 +929,16 @@ export function filterSameEpisodeTitle(filteredTmpEpisodes) {
             return prevEpisode.episodeTitle === episode.episodeTitle;
         });
     });
-    return filteredEpisodes;
+    // 对聚合采集源（如360）中来自不同平台的同名集号做二次去重
+    // 同一集号保留首次出现（最早平台）的条目
+    const seenNumbers = new Set();
+    return filteredEpisodes.filter(ep => {
+        const num = extractEpisodeNumberFromTitle(ep.episodeTitle);
+        if (num === null) return true;
+        if (seenNumbers.has(num)) return false;
+        seenNumbers.add(num);
+        return true;
+    });
 }
 
 /**
@@ -1191,13 +1206,15 @@ function findCrossSeasonEpisodeMap(searchData, title, year, season, episode, pla
     }
     if (sNum === null) sNum = 1;
 
-    if (!seasonMap.has(sNum)) {
-      const bangumiData = getBangumiDataForMatch(anime, detailStore);
-      if (bangumiData?.success && bangumiData?.bangumi?.episodes) {
-        const filteredTmpEpisodes = bangumiData.bangumi.episodes.filter(ep => !globals.episodeTitleFilter.test(ep.episodeTitle));
-        const filteredEpisodes = filterSameEpisodeTitle(filteredTmpEpisodes);
+    const bangumiData = getBangumiDataForMatch(anime, detailStore);
+    if (bangumiData?.success && bangumiData?.bangumi?.episodes) {
+      const filteredTmpEpisodes = bangumiData.bangumi.episodes.filter(ep => !globals.episodeTitleFilter.test(ep.episodeTitle));
+      const filteredEpisodes = filterSameEpisodeTitle(filteredTmpEpisodes);
 
-        if (filteredEpisodes.length > 0) {
+      if (filteredEpisodes.length > 0) {
+        const existing = seasonMap.get(sNum);
+        // 同一季号存在多个候选时，保留集数更多的条目（如 TV 系列覆盖剧场版/特别篇）
+        if (!existing || filteredEpisodes.length > existing.episodes.length) {
           seasonMap.set(sNum, {
             anime: anime,
             episodes: filteredEpisodes,
