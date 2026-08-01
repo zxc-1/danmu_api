@@ -1901,7 +1901,8 @@ export async function searchEpisodes(url) {
           typeDescription: animeItem.typeDescription,
           episodes: filteredEpisodes.map(ep => ({
             episodeId: ep.episodeId,
-            episodeTitle: ep.episodeTitle
+            episodeTitle: ep.episodeTitle,
+            url: ep.url || ""
           }))
         }));
       }
@@ -1948,6 +1949,7 @@ function buildBangumiData(anime, idParam = "") {
       episodeTitle: `${link.title}`,
       episodeNumber: `${i+1}`,
       airDate: anime.startDate,
+      url: link.url || ""
     });
   }
 
