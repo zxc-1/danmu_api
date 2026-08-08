@@ -92,6 +92,11 @@ export const responsiveCssContent = /* css */ `
         width: 100%;
     }
 
+    .favorite-action-btn {
+        max-width: none;
+        flex-basis: 100%;
+    }
+
     .btn {
         flex: 1;
     }
@@ -194,6 +199,15 @@ export const responsiveCssContent = /* css */ `
         gap: 4px 10px;
         width: calc(100% - 12px);
         box-sizing: border-box;
+    }
+
+    .theme-settings {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .theme-options {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 }
 

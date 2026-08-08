@@ -123,6 +123,7 @@ export const componentsCssContent = /* css */ `
 .env-item .env-actions {
     display: flex;
     gap: 6px;
+    flex-wrap: wrap;
     flex-shrink: 0;
 }
 
@@ -162,6 +163,83 @@ export const componentsCssContent = /* css */ `
 
 .btn:active {
     transform: scale(0.97);
+}
+
+.favorite-action-btn {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.favorite-action-btn:disabled,
+.favorite-action-btn:disabled:hover,
+body[data-theme] .favorite-action-btn:disabled,
+body[data-theme] .favorite-action-btn:disabled:hover {
+    background: #d1d5db !important;
+    color: #6b7280 !important;
+    border-color: #d1d5db !important;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+    transform: none;
+}
+
+.favorite-action-btn:disabled::before {
+    display: none;
+}
+
+.favorite-cover {
+    width: 58px;
+    height: 78px;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    object-fit: cover;
+    background: #e5e7eb;
+}
+
+.favorite-info-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.favorite-meta {
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.favorite-schedule-btn {
+    min-width: 92px;
+}
+
+.favorite-schedule-btn:disabled,
+.favorite-schedule-btn:disabled:hover,
+body[data-theme] .favorite-schedule-btn:disabled,
+body[data-theme] .favorite-schedule-btn:disabled:hover {
+    background: #d1d5db !important;
+    color: #6b7280 !important;
+    border-color: #d1d5db !important;
+    cursor: not-allowed;
+    opacity: 1;
+    box-shadow: none;
+    transform: none;
+}
+
+.favorite-schedule-hint {
+    color: #6b7280;
+    font-size: 13px;
+    margin: 0 0 16px;
+}
+
+.favorite-schedule-modal-content {
+    max-width: 460px;
+}
+
+.favorite-list {
+    margin-top: 8px;
 }
 
 .btn-primary {

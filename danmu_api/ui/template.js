@@ -35,7 +35,7 @@ export const HTML_TEMPLATE = /* html */ `
     <script>
         try {
             var storedTheme = localStorage.getItem('logvar_ui_theme');
-            var validThemes = ['shinyo','sakura','tianyi','hatsune','sakuragi','violet','amber','lavender'];
+            var validThemes = ['lavender','shinyo','sakura','tianyi','hatsune','sakuragi','violet','amber'];
             if (validThemes.indexOf(storedTheme) !== -1) { document.body.dataset.theme = storedTheme; }
             var storedScheme = localStorage.getItem('logvar_ui_color_scheme');
             if (storedScheme === 'dark' || storedScheme === 'light') {
@@ -176,13 +176,14 @@ export const HTML_TEMPLATE = /* html */ `
                     <div class="danmu-test-tabs">
                         <button class="danmu-test-tab active" onclick="switchDanmuTestTab('auto', event)">自动匹配测试</button>
                         <button class="danmu-test-tab" onclick="switchDanmuTestTab('manual', event)">手动匹配测试</button>
+                        <button class="danmu-test-tab" onclick="switchDanmuTestTab('favorite', event)">收藏</button>
                     </div>
 
                     <div class="danmu-test-panel active" id="auto-match-panel">
                         <p style="color: #666; margin-bottom: 15px;">模拟播放器自动匹配流程：输入文件名 → 匹配剧集 → 获取弹幕</p>
                         <div class="form-group" style="margin-bottom: 15px;">
                             <label>文件名</label>
-                            <div style="display:flex;gap:10px;margin-top:5px;">
+                            <div style="display:flex;gap:10px;margin-top:5px;flex-wrap:wrap;">
                                 <input type="text" id="auto-match-filename" placeholder="示例: 生万物 S02E08, 无忧渡.S02E08.2160p.WEB-DL" style="flex:1;">
                                 <button class="btn btn-success" id="auto-match-btn" onclick="autoMatchTest()">开始匹配</button>
                             </div>
@@ -196,10 +197,60 @@ export const HTML_TEMPLATE = /* html */ `
                             <div style="display:flex;gap:10px;margin-top:5px;">
                                 <input type="text" id="manual-search-keyword" placeholder="请输入动漫名称" style="flex:1;">
                                 <button class="btn btn-primary" id="manual-search-btn" onclick="manualSearchAnime()">搜索</button>
+                                <button class="btn btn-success favorite-action-btn" id="manual-favorite-btn" onclick="favoriteManualSearch()" disabled>收藏</button>
                             </div>
                         </div>
                         <div id="manual-anime-list" style="display:none;"></div>
                         <div id="manual-episode-list" style="display:none;"></div>
+                    </div>
+
+                    <div class="danmu-test-panel" id="favorite-panel">
+                        <p style="color: #666; margin-bottom: 15px;">收藏后的剧集会永久缓存，后续匹配可秒级返回缓存结果；对于《火影忍者》《名侦探柯南》等集数较多的剧集尤其有用，无需每次重新搜索。可在“手动匹配测试”界面搜索剧集后，点击“收藏”按钮添加搜索结果收藏。只缓存剧集搜索结果，不缓存弹幕。</p>
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label>搜索收藏</label>
+                            <div style="display:flex;gap:10px;margin-top:5px;">
+                                <input type="text" id="favorite-search-input" placeholder="搜索收藏剧名或来源" oninput="handleFavoriteSearch(event)" style="flex:1;">
+                                <button class="btn btn-primary" onclick="loadFavoriteList()">刷新列表</button>
+                            </div>
+                        </div>
+                        <div class="preview-status" id="favorite-list-status" aria-live="polite"></div>
+                        <div class="favorite-list" id="favorite-list"></div>
+                    </div>
+
+                    <div class="modal" id="favorite-schedule-modal">
+                        <div class="modal-content favorite-schedule-modal-content">
+                            <div class="modal-header">
+                                <h3>设置定时刷新</h3>
+                                <button class="close-btn" onclick="closeFavoriteScheduleModal()">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="favorite-schedule-hint">按北京时间执行，仅 Node/Docker 部署支持定时刷新。</p>
+                                <input type="hidden" id="favorite-schedule-keyword">
+                                <div class="form-group">
+                                    <label for="favorite-schedule-frequency">刷新频率</label>
+                                    <select id="favorite-schedule-frequency" onchange="toggleFavoriteScheduleWeekday()">
+                                        <option value="daily">每天</option>
+                                        <option value="weekly">每周</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" id="favorite-schedule-weekday-group" style="display:none;">
+                                    <label for="favorite-schedule-weekday">星期</label>
+                                    <select id="favorite-schedule-weekday">
+                                        <option value="1">周一</option><option value="2">周二</option><option value="3">周三</option>
+                                        <option value="4">周四</option><option value="5">周五</option><option value="6">周六</option><option value="7">周日</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="favorite-schedule-time">时间</label>
+                                    <input type="time" id="favorite-schedule-time" value="03:00">
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button class="btn btn-danger" id="favorite-schedule-disable-btn" onclick="disableFavoriteSchedule()">关闭定时刷新</button>
+                                <button class="btn btn-primary" onclick="closeFavoriteScheduleModal()">取消</button>
+                                <button class="btn btn-success" onclick="saveFavoriteSchedule()">保存</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div id="danmu-result-area" style="display:none;"></div>
@@ -345,9 +396,12 @@ export const HTML_TEMPLATE = /* html */ `
                 <div class="theme-settings" id="theme-settings" hidden>
                     <div class="theme-settings-copy">
                         <h3>界面主题</h3>
-                        <span class="theme-current-label" id="theme-current-label">UI_THEME · 新叶绿</span>
+                        <span class="theme-current-label" id="theme-current-label">UI_THEME · 经典默认</span>
                     </div>
                     <div class="theme-options" role="radiogroup" aria-label="界面主题选择">
+                        <button type="button" role="radio" class="theme-option" data-theme-option="lavender" aria-checked="false" onclick="selectTheme('lavender')" title="经典默认">
+                            <span class="theme-swatches" aria-hidden="true"><i style="background:#667eea"></i><i style="background:#5a6fd6"></i><i style="background:#eef0f8"></i></span><span class="theme-option-label">经典默认</span>
+                        </button>
                         <button type="button" role="radio" class="theme-option" data-theme-option="shinyo" aria-checked="false" onclick="selectTheme('shinyo')" title="新叶绿">
                             <span class="theme-swatches" aria-hidden="true"><i style="background:#8cb48c"></i><i style="background:#7aa37a"></i><i style="background:#e8efe8"></i></span><span class="theme-option-label">新叶绿</span>
                         </button>
@@ -368,9 +422,6 @@ export const HTML_TEMPLATE = /* html */ `
                         </button>
                         <button type="button" role="radio" class="theme-option" data-theme-option="amber" aria-checked="false" onclick="selectTheme('amber')" title="LCL橘">
                             <span class="theme-swatches" aria-hidden="true"><i style="background:#f78c50"></i><i style="background:#e67a40"></i><i style="background:#f0ebe6"></i></span><span class="theme-option-label">LCL橘</span>
-                        </button>
-                        <button type="button" role="radio" class="theme-option" data-theme-option="lavender" aria-checked="false" onclick="selectTheme('lavender')" title="经典默认">
-                            <span class="theme-swatches" aria-hidden="true"><i style="background:#667eea"></i><i style="background:#5a6fd6"></i><i style="background:#eef0f8"></i></span><span class="theme-option-label">经典默认</span>
                         </button>
                     </div>
                 </div>
