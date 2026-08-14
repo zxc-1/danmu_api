@@ -296,6 +296,17 @@ body[data-theme] .favorite-schedule-btn:disabled:hover {
     font-size: 12px;
 }
 
+.btn-secondary {
+    background: var(--theme-panel-strong);
+    color: var(--theme-text);
+    border: 1px solid var(--theme-border);
+}
+
+.btn-secondary:hover {
+    border-color: var(--theme-accent);
+    color: var(--theme-accent);
+}
+
 /* ============ 配置预览 ============ */
 .preview-description {
     color: var(--theme-muted);
@@ -957,6 +968,115 @@ body.modal-open {
     top: 0;
     color: var(--theme-accent);
     font-size: 13px;
+}
+
+/* 通用复选框：appearance 自绘控制勾选色；body[data-theme] 前缀将特异性提至 3002，压过 .form-group input 的背景/边框(2002)与尺寸/内边距(1001) */
+body[data-theme] input[type="checkbox"].app-checkbox {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    padding: 0;
+    flex-shrink: 0;
+    vertical-align: middle;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    background: var(--theme-panel-bg);
+    border: 1px solid var(--theme-muted);
+    border-radius: 3px;
+}
+
+body[data-theme] input[type="checkbox"].app-checkbox:checked {
+    background: var(--theme-accent);
+    border-color: var(--theme-accent);
+}
+
+body[data-theme] input[type="checkbox"].app-checkbox:checked::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 4px;
+    height: 9px;
+    border: solid var(--theme-check-color);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+body[data-theme] input[type="checkbox"].app-checkbox:focus-visible {
+    outline: 2px solid var(--theme-accent-soft);
+    outline-offset: 1px;
+}
+
+.cache-clear-hint {
+    margin: 0 0 12px;
+    font-size: 16px;
+    color: var(--theme-text);
+}
+
+.cache-clear-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.cache-clear-count {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--theme-muted);
+    background: color-mix(in srgb, var(--theme-muted) 10%, transparent); /* 状态标签底色，非按钮 */
+    padding: 5px 10px;
+    border-radius: 999px;
+}
+
+.cache-clear-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.cache-clear-actions .btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    min-width: 64px;
+}
+
+.cache-clear-options {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    border: 1px solid var(--theme-border);
+    border-radius: var(--app-radius-card-sm);
+    overflow: hidden;
+    background: var(--theme-panel-bg);
+}
+
+.cache-clear-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--theme-border);
+}
+
+.cache-clear-item:last-child {
+    border-bottom: none;
+}
+
+.cache-clear-item:hover {
+    background: var(--theme-panel-strong);
+}
+
+.cache-clear-note {
+    margin: 12px 0 0;
+    font-size: 12px;
+    color: var(--theme-muted);
 }
 
 .warning-box {
