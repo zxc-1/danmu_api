@@ -2850,6 +2850,101 @@ test('worker.js API endpoints', async (t) => {
 //   });
 // });
 
+// // 测试 Bangumi Data 数据下载时机（ensureBangumiDataReady）、配置变更触发下载（syncBangumiDataLifecycleOnConfigChange）
+// // 以及 getTMDBChineseTitle 漏写 await 的修复；与 envs RAW_ENV_KEYS 测试同为按需启用的内部测试
+// import { globals } from './configs/globals.js';
+// import { ensureBangumiDataReady, syncBangumiDataLifecycleOnConfigChange, initBangumiData, clearBangumiDataCache } from './utils/bangumi-data-util.js';
+// import fs from 'node:fs';
+// import path from 'node:path';
+//
+// test('bangumi-data 数据下载时机与配置变更触发下载', async (t) => {
+//   const CACHE_DIR = path.join(process.cwd(), '.cache');
+//   const CACHE_FILE = path.join(CACHE_DIR, 'bangumi-data-cache.json');
+//   const FAKE_ITEM = {
+//     title: 'FrobeniusTestAnime',
+//     titleTranslate: { 'zh-Hans': ['弗罗贝尼乌斯测试动画', 'FrobeniusTestAnime'] },
+//     sites: [{ site: 'tmdb', id: '999999' }],
+//     _flatText: 'frobeniustestanime'
+//   };
+//   const reset = () => {
+//     globals.useBangumiData = false;
+//     clearBangumiDataCache(false);
+//     if (fs.existsSync(CACHE_FILE)) fs.writeFileSync(CACHE_FILE, '', 'utf-8');
+//   };
+//
+//   await t.test('ensureBangumiDataReady 开关关闭时直接返回且不触发下载', async () => {
+//     reset();
+//     globals.useBangumiData = false;
+//     await ensureBangumiDataReady('node');
+//     assert.ok(true);
+//   });
+//
+//   await t.test('syncBangumiDataLifecycleOnConfigChange 开关关闭释放缓存、开启安全触发', async () => {
+//     reset();
+//     globals.useBangumiData = false;
+//     assert.doesNotThrow(() => syncBangumiDataLifecycleOnConfigChange('node'));
+//     fs.mkdirSync(CACHE_DIR, { recursive: true });
+//     fs.writeFileSync(CACHE_FILE, JSON.stringify({ items: [FAKE_ITEM] }), 'utf-8');
+//     globals.useBangumiData = true;
+//     assert.doesNotThrow(() => syncBangumiDataLifecycleOnConfigChange('node'));
+//   });
+//
+//   await t.test('getTMDBChineseTitle 经 await 命中本地中文名（修复漏写 await）', async () => {
+//     reset();
+//     globals.useBangumiData = true;
+//     const originalContent = fs.existsSync(CACHE_FILE) ? fs.readFileSync(CACHE_FILE, 'utf-8') : null;
+//     fs.mkdirSync(CACHE_DIR, { recursive: true });
+//     fs.writeFileSync(CACHE_FILE, JSON.stringify({ items: [FAKE_ITEM] }), 'utf-8');
+//     try {
+//       await initBangumiData('node', true);
+//       const result = await getTMDBChineseTitle('FrobeniusTestAnime');
+//       assert.equal(result, '弗罗贝尼乌斯测试动画');
+//     } finally {
+//       clearBangumiDataCache(false);
+//       if (originalContent !== null) fs.writeFileSync(CACHE_FILE, originalContent, 'utf-8');
+//       else fs.writeFileSync(CACHE_FILE, '', 'utf-8');
+//     }
+//   });
+// });
+
+// // 测试 Bangumi Data 在途下载暴露与边缘生命周期延长（getBackgroundDownload / extendBangumiDownloadLifecycle）
+// // 与上方 bangumi 测试同为按需启用的内部测试；沙箱有网时真实下载以验证在途暴露、注册与清理
+// import { globals } from './configs/globals.js';
+// import { initBangumiData, getBackgroundDownload, extendBangumiDownloadLifecycle } from './utils/bangumi-data-util.js';
+// import assert from 'node:assert';
+// import fs from 'node:fs';
+// import path from 'node:path';
+//
+// test('bangumi-data 在途下载暴露与边缘生命周期延长', async (t) => {
+//   const CACHE_DIR = path.join(process.cwd(), '.cache');
+//   const CACHE_FILE = path.join(CACHE_DIR, 'bangumi-data-cache.json');
+//   const hadCache = fs.existsSync(CACHE_DIR);
+//
+//   // 空闲时无在途下载
+//   assert.strictEqual(getBackgroundDownload(), null);
+//
+//   await t.test('extendBangumiDownloadLifecycle 在无在途或 ctx 缺失时不注册', async () => {
+//     const calls = [];
+//     extendBangumiDownloadLifecycle(null);
+//     extendBangumiDownloadLifecycle({ waitUntil: (p) => calls.push(p) });
+//     assert.strictEqual(calls.length, 0);
+//   });
+//
+//   await t.test('在途下载被暴露、响应后由边缘 waitUntil 注册、完成后清理', async () => {
+//     globals.useBangumiData = true;
+//     // 启动真实下载（无 .cache 时走内存路径，不落地文件；有 .cache 则后台刷新），不在途时立即返回
+//     const initPromise = initBangumiData('node', true);
+//     const bg = getBackgroundDownload();
+//     assert.ok(bg && typeof bg.then === 'function', '下载在途时应暴露 Promise');
+//     const ctx = { waitUntil: (p) => { ctx.registered = p; } };
+//     extendBangumiDownloadLifecycle(ctx);
+//     assert.strictEqual(ctx.registered, bg, '边缘 waitUntil 应注册在途 Promise');
+//     await bg; // 等待下载完成（兼容阻塞与后台两种路径）
+//     assert.strictEqual(getBackgroundDownload(), null, '下载完成后应清理在途状态');
+//     globals.useBangumiData = false;
+//     if (!hadCache && fs.existsSync(CACHE_FILE)) fs.writeFileSync(CACHE_FILE, '', 'utf-8');
+//     await initPromise.catch(() => {});
+//   });
 // // 测试自定义文本类变量绕过 dotenv 注释截断（保留 # 等字符），对应 envs.js RAW_ENV_KEYS 修复
 // import { Envs } from './configs/envs.js';
 //
