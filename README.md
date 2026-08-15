@@ -36,7 +36,7 @@ LogVar 弹幕 API 服务器
 - [使用 Docker 运行](#使用-docker-运行)
 - [Docker 一键启动 【推荐】](#docker-一键启动-推荐)
 - [部署到 Vercel 【推荐】](#部署到-vercel-推荐)
-- [部署到 Netlify 【推荐】](#部署到-netlify-推荐)
+- [部署到 Netlify](#部署到-netlify)
 - [部署到 腾讯云 edgeone pages](#部署到-腾讯云-edgeone-pages)
 - [部署到 Cloudflare](#部署到-cloudflare)
 - [部署到 Hugging Face Spaces](#部署到-hugging-face-spaces)
@@ -308,7 +308,7 @@ GET http://127.0.0.1:9321/87654321/api/logs
   > hk有可能访问不了360或其他源，可以尝试切其他region
 - vercel在国内被墙，请配合代理或绑定自定义域名使用
 
-## 部署到 Netlify 【推荐】
+## 部署到 Netlify
 
 > ⚠️ **风险提示：Netlify 存在封号风险！**
 >
