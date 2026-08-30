@@ -24,6 +24,7 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           OPENAI.API_BASE: ${{ vars.OPENAI_API_BASE }}
           config.model: ${{ vars.PR_AGENT_MODEL }}
+          config.custom_model_max_tokens: "128000"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           github_action_config.auto_review: "true"
           github_action_config.auto_describe: "true"
