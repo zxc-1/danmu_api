@@ -1,6 +1,30 @@
 // language=CSS
 export const componentsCssContent = /* css */ `
-/* 组件样式 — 参照 Bangumi-syncer ACG 设计系统 */
+/* 组件样式 — 参照 Bangumi-syncer 柔和圆角设计风格 */
+
+/* ============ 图标 ============ */
+/* 统一线性图标：尺寸随字号（1em），描边取 currentColor */
+.ui-icon-sprite {
+    position: absolute;
+    width: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.ui-icon {
+    display: inline-block;
+    flex: none;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+}
+
+/* 图标与文字成对出现时的对齐容器（flex 居中） */
+.ui-icon-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+}
 
 /* ============ 标签导航 ============ */
 .nav-buttons {
@@ -152,7 +176,10 @@ export const componentsCssContent = /* css */ `
     font-size: 13px;
     font-weight: 500;
     transition: all 0.22s var(--app-ease-smooth);
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     text-align: center;
     line-height: 1.4;
 }
@@ -705,7 +732,7 @@ body[data-theme] .favorite-schedule-btn:disabled:hover {
     display: grid;
     place-items: center;
     color: var(--theme-muted);
-    font-size: 24px;
+    font-size: 16px;
     line-height: 1;
 }
 
@@ -716,7 +743,7 @@ body[data-theme] .favorite-schedule-btn:disabled:hover {
 .preview-group-heading {
     min-height: 32px;
     display: flex;
-    align-items: baseline;
+    align-items: center;
     justify-content: space-between;
     gap: 10px;
     padding: 0 2px 8px;
@@ -826,6 +853,9 @@ body[data-theme] .favorite-schedule-btn:disabled:hover {
 
 .preview-copy-btn {
     padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     font-size: 16px;
 }
 
@@ -1737,6 +1767,7 @@ body[data-theme] input[type="checkbox"].app-checkbox:focus-visible {
 
 .confirm-merge-btn:disabled {
     background: var(--theme-panel-strong);
+    color: var(--theme-muted);
     cursor: not-allowed;
     box-shadow: none;
 }
