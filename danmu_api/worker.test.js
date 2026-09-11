@@ -3668,6 +3668,7 @@ function makePage(fetch, sandboxGlobals = {}, html) {
     customAlert: () => {},
     currentToken: 'local-user-token',
     currentAdminToken: '',
+    globals: { localDanmuRedisValid: true, localDanmuIsCloud: false },
     ...sandboxGlobals,
   });
   new vm.Script(localDanmuJsContent).runInContext(context);
@@ -3690,7 +3691,7 @@ test('local danmu upload and deletion permissions apply before config loads and 
       const env = { TOKEN: userToken, ADMIN_TOKEN: scenario.adminToken ?? adminToken, LOG_LEVEL: 'error', RATE_LIMIT_MAX_REQUESTS: '0' };
       if (scenario.setting !== undefined) env.LOCAL_DANMU_NOT_REQUIRE_ADMIN = scenario.setting;
       const baseUrl = 'http://localhost/' + scenario.token;
-      const request = req => handleRequest(req, env, 'cloudflare', '127.0.0.1');
+      const request = req => handleRequest(req, env, 'node', '127.0.0.1');
       const response = await request(new Request(baseUrl));
       assert.equal(response.status, 200);
       const alerts = [];
@@ -3741,6 +3742,55 @@ test('local danmu upload and deletion permissions apply before config loads and 
       }
     });
   }
+});
+
+test('cloud local danmu requires Redis before file selection or upload', async () => {
+  let requests = 0;
+  const alerts = [];
+  const { context, elements, chooseFile } = makePage(async (_url, options = {}) => {
+    requests++;
+    return options.method === 'POST'
+      ? { ok: true, json: async () => ({ success: true, resource: { season: 1, count: 1 } }) }
+      : { ok: true, json: async () => ({ success: true, groups: [] }) };
+  }, {
+    customAlert: (message, title) => alerts.push({ message, title }),
+  });
+
+  const config = {
+    envs: { deployPlatform: 'vercel', redisValid: false, LOCAL_DANMU_NOT_REQUIRE_ADMIN: true },
+    originalEnvVars: { ADMIN_TOKEN: 'admin-token' },
+  };
+  context.updateLocalDanmuPermission(config);
+  const event = new Event('click', { cancelable: true });
+  assert.equal(chooseFile(event), false);
+  assert.equal(event.defaultPrevented, true);
+  assert.equal(alerts.at(-1).title, '需要配置 Redis');
+  assert.match(alerts.at(-1).message, /UPSTASH_REDIS_REST_URL/);
+
+  fillUploadForm(elements);
+  await context.uploadLocalDanmu();
+  assert.equal(requests, 0);
+  assert.match(elements.get('local-danmu-upload-status').textContent, /未配置可用 Redis/);
+
+  config.envs.redisValid = true;
+  context.updateLocalDanmuPermission(config);
+  const readyEvent = new Event('click', { cancelable: true });
+  assert.equal(chooseFile(readyEvent), true);
+  await context.uploadLocalDanmu();
+  assert.equal(requests, 2);
+});
+
+test('cloud local danmu page embeds Redis readiness before config refresh', async () => {
+  const response = await handleRequest(
+    new Request('http://localhost/87654321'),
+    { TOKEN: '87654321', LOG_LEVEL: 'error' },
+    'vercel',
+    '127.0.0.1'
+  );
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /let localDanmuStorageReady = false;/);
+  assert.match(html, /let localDanmuIsCloud = true;/);
 });
 
 test('refreshing local danmu config updates permission and an enabled flag still requires a valid token', async () => {

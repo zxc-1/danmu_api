@@ -1,20 +1,41 @@
 // language=JavaScript
 export const localDanmuJsContent = /* javascript */ `
+let localDanmuStorageReady = globals.localDanmuRedisValid;
+let localDanmuIsCloud = globals.localDanmuIsCloud;
 function localDanmuUrl(path, admin = false) { return buildApiUrl(path, admin); }
+function localDanmuRedisUnavailable() {
+  return localDanmuIsCloud && !localDanmuStorageReady;
+}
+function showLocalDanmuRedisRequired() {
+  const message = '当前为云端部署，未配置可用 Redis，无法使用本地弹幕。请配置 UPSTASH_REDIS_REST_URL 和 UPSTASH_REDIS_REST_TOKEN 后重试。';
+  const status = document.getElementById('local-danmu-upload-status');
+  if (status) status.textContent = message;
+  customAlert(message, '需要配置 Redis');
+  return false;
+}
 function updateLocalDanmuPermission(config) {
   const file = document.getElementById('local-danmu-file');
   if (!file) return;
   if (config) {
+    const deployPlatform = String(config.envs?.deployPlatform || '').trim().toLowerCase();
+    localDanmuIsCloud = deployPlatform !== '' && deployPlatform !== 'node';
+    localDanmuStorageReady = config.envs?.redisValid === true;
     const adminToken = config.originalEnvVars?.ADMIN_TOKEN || '';
     file.dataset.canUpload = String(config.envs?.LOCAL_DANMU_NOT_REQUIRE_ADMIN === true
       || (!!adminToken && currentToken === adminToken));
   }
   const permission = document.getElementById('local-danmu-permission');
-  if (permission) permission.textContent = file.dataset.canUpload === 'true'
+  if (permission) permission.textContent = localDanmuRedisUnavailable()
+    ? '当前为云端部署，未配置可用 Redis，无法使用本地弹幕。请先配置 Redis。'
+    : file.dataset.canUpload === 'true'
     ? '可查看、上传和删除本地弹幕。'
     : '可查看已导入的本地弹幕；上传和删除需要 ADMIN 权限，请使用 ADMIN_TOKEN 访问。';
 }
 function checkLocalDanmuWritePermission(action, event) {
+  if (localDanmuRedisUnavailable()) {
+    if (event) event.preventDefault();
+    return showLocalDanmuRedisRequired();
+  }
   if (document.getElementById('local-danmu-file').dataset.canUpload === 'true') return true;
   if (event) event.preventDefault();
   const message = action + '本地弹幕需要 ADMIN 权限，请使用 ADMIN_TOKEN 访问。';
@@ -109,6 +130,10 @@ async function loadLocalDanmuList() {
   } catch { box.replaceChildren(localDanmuElement('p', 'text-gray', '资源列表加载失败，请稍后重试')); }
 }
 async function uploadLocalDanmu() {
+  if (localDanmuRedisUnavailable()) {
+    showLocalDanmuRedisRequired();
+    return;
+  }
   if (!checkLocalDanmuWritePermission('上传')) return;
   const f = document.getElementById('local-danmu-file').files[0]; const s = document.getElementById('local-danmu-upload-status');
   if (!f) { s.textContent = '请选择文件'; return; }
@@ -145,6 +170,10 @@ async function uploadLocalDanmu() {
   finally { button.disabled = false; }
 }
 async function deleteLocalDanmu(key) {
+  if (localDanmuRedisUnavailable()) {
+    showLocalDanmuRedisRequired();
+    return;
+  }
   if (!checkLocalDanmuWritePermission('删除')) return;
   if (!confirm('确认删除这个弹幕文件？')) return;
   const status = document.getElementById('local-danmu-upload-status');
