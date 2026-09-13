@@ -949,6 +949,7 @@ body[data-theme] .favorite-schedule-btn:disabled:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    margin-top: 14px;
     margin-bottom: 12px;
     flex-wrap: wrap;
     gap: 8px;
@@ -1956,11 +1957,6 @@ body[data-theme] input[type="checkbox"].app-checkbox:focus-visible {
     padding-bottom: 0;
 }
 
-.record-timestamp::before {
-    content: '\\1F550';
-    font-size: 14px;
-}
-
 .record-params {
     background: var(--theme-panel-strong);
     border-radius: var(--app-radius-card-sm);
@@ -2477,7 +2473,9 @@ body[data-theme] input[type="checkbox"].app-checkbox:focus-visible {
     color: var(--theme-muted);
     transition: all 0.22s var(--app-ease-smooth);
     margin-bottom: 14px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .btn-back:hover {
