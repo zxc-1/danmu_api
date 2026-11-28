@@ -1,0 +1,83 @@
+name: Sync Upstream
+
+on:
+  schedule:
+    - cron: "0 19 * * *"   # 注意：UTC 时间
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "要强制同步的分支"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: force-sync-upstream
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    # 统一分支名：
+    # - 手动触发时用 inputs.branch
+    # - 定时触发/其它事件回退到 'main'
+    env:
+      BRANCH: ${{ github.event_name == 'workflow_dispatch' && inputs.branch || 'main' }}
+      REPO:   ${{ github.repository }}
+      TOKEN:  ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Configure global git identity
+        run: |
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Init a clean repo and add origin
+        run: |
+          set -euo pipefail
+          echo "Using branch: ${BRANCH}"
+          mkdir repo && cd repo
+          git init
+          git remote add origin "https://x-access-token:${TOKEN}@github.com/${REPO}.git"
+          git fetch origin --prune
+          if git show-ref --verify --quiet "refs/remotes/origin/${BRANCH}"; then
+            git switch -c "${BRANCH}" --track "origin/${BRANCH}"
+          else
+            git switch -c "${BRANCH}"
+          fi
+
+      - name: Add upstream & fetch
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/huangxd-/danmu_api.git
+          git fetch upstream --prune --tags
+
+      - name: Hard reset to upstream/<branch>
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          git reset --hard "upstream/${BRANCH}"
+
+      - name: KEEP local workflows to avoid workflow-ref push rejection
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code origin "refs/heads/${BRANCH}" >/dev/null 2>&1; then
+            if git ls-tree -r --name-only "origin/${BRANCH}" | grep -qE '^\.github/workflows/'; then
+              git restore --source "origin/${BRANCH}" -- .github/workflows || true
+              if ! git diff --quiet; then
+                git add -A
+                git commit -m "keep local workflows while force-syncing from upstream"
+              fi
+            fi
+          fi
+
+      - name: Push (force-with-lease)
+        working-directory: repo
+        run: |
+          set -euo pipefail
+          git push origin "${BRANCH}" --force-with-lease
